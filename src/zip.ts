@@ -1,11 +1,12 @@
 // ZIP export and import functionality
 import JSZip from 'jszip';
-import type { Issue, PhotoRef, Room } from './types.ts';
+import type { Issue, PhotoRef, Room, Assignee } from './types.ts';
 import { getPhotosByIssue, saveIssue, savePhoto, clearAllData } from './db.ts';
 
-export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
+export async function exportZip(issues: Issue[], rooms: Room[], assignees?: Assignee[]): Promise<void> {
   const zip = new JSZip();
   const roomMap = new Map(rooms.map((r) => [r.slug, r.name]));
+  const assigneeMap = new Map((assignees || []).map((a) => [a.slug, a.name]));
 
   // Create img folder
   const imgFolder = zip.folder('img');
@@ -26,6 +27,7 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
     openIssues: issues.filter((i) => i.status === 'open').length,
     doneIssues: issues.filter((i) => i.status === 'done').length,
     rooms: rooms,
+    assignees: assignees || [],
     issues: [] as any[],
   };
 
@@ -53,6 +55,7 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
     id: issue.id,
     roomSlug: issue.roomSlug,
     roomName: roomName,
+    assigneeSlug: issue.assigneeSlug || '',
     title: issue.title,
     description: issue.description,
     status: issue.status,
@@ -76,6 +79,11 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
       markdownContent += `### ${statusIcon} ${issue.title}\n\n`;
       markdownContent += `**Statut :** ${statusText}\n\n`;
       markdownContent += `**Pièce :** ${roomName}\n\n`;
+
+      if (issue.assigneeSlug) {
+        const assigneeName = assigneeMap.get(issue.assigneeSlug) || issue.assigneeSlug;
+        markdownContent += `**Assigné à :** ${assigneeName}\n\n`;
+      }
 
       if (issue.description) {
         markdownContent += `**Description :**\n\n${issue.description}\n\n`;
@@ -234,6 +242,31 @@ export async function importZip(file: File, mode: ImportMode): Promise<{ issueCo
     }
   }
 
+  // Restore assignees if present
+  if (reportData.assignees && Array.isArray(reportData.assignees)) {
+    const validAssignees = reportData.assignees.filter(
+      (a: unknown): a is Assignee =>
+        typeof a === 'object' && a !== null &&
+        typeof (a as Assignee).slug === 'string' && (a as Assignee).slug.length > 0 &&
+        typeof (a as Assignee).name === 'string' && (a as Assignee).name.length > 0
+    );
+    if (validAssignees.length > 0) {
+      if (mode === 'merge') {
+        const existingAssigneesJson = localStorage.getItem('assignees');
+        const existingAssignees: Assignee[] = existingAssigneesJson ? JSON.parse(existingAssigneesJson) : [];
+        const existingSlugs = new Set(existingAssignees.map((a) => a.slug));
+        for (const assignee of validAssignees) {
+          if (!existingSlugs.has(assignee.slug)) {
+            existingAssignees.push(assignee);
+          }
+        }
+        localStorage.setItem('assignees', JSON.stringify(existingAssignees));
+      } else {
+        localStorage.setItem('assignees', JSON.stringify(validAssignees));
+      }
+    }
+  }
+
   let issueCount = 0;
   let photoCount = 0;
 
@@ -308,6 +341,7 @@ export async function importZip(file: File, mode: ImportMode): Promise<{ issueCo
     const issue: Issue = {
       id: issueData.id,
       roomSlug: issueData.roomSlug,
+      assigneeSlug: issueData.assigneeSlug || undefined,
       title: issueData.title,
       description: issueData.description || '',
       status,
