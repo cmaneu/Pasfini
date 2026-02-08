@@ -1,0 +1,66 @@
+const CACHE_NAME = 'pasfini-v1';
+const urlsToCache = [
+  '/Pasfini/',
+  '/Pasfini/index.html',
+  '/Pasfini/manifest.webmanifest',
+];
+
+// Install event - cache essential files
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        return cache.addAll(urlsToCache);
+      })
+      .then(() => self.skipWaiting())
+  );
+});
+
+// Activate event - clean up old caches
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
+});
+
+// Fetch event - serve from cache, fallback to network
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request)
+      .then((response) => {
+        // Cache hit - return response
+        if (response) {
+          return response;
+        }
+
+        return fetch(event.request).then((response) => {
+          // Check if valid response
+          if (!response || !response.ok) {
+            return response;
+          }
+
+          // Clone the response
+          const responseToCache = response.clone();
+
+          // Cache the response asynchronously (don't block the return)
+          caches.open(CACHE_NAME)
+            .then((cache) => {
+              cache.put(event.request, responseToCache);
+            })
+            .catch((err) => {
+              console.error('Caching failed:', err);
+            });
+
+          return response;
+        });
+      })
+  );
+});

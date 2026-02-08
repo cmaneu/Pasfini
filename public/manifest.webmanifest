@@ -1,0 +1,27 @@
+{
+  "name": "Pasfini — Réserves chantier",
+  "short_name": "Pasfini",
+  "description": "Application de gestion des réserves de chantier",
+  "start_url": "/Pasfini/",
+  "scope": "/Pasfini/",
+  "display": "standalone",
+  "background_color": "#1e40af",
+  "theme_color": "#1e40af",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/Pasfini/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/Pasfini/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "screenshots": []
+}

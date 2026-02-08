@@ -1,0 +1,18 @@
+<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" fill="#1e40af" rx="64"/>
+  <g fill="white">
+    <!-- Construction crane icon -->
+    <!-- Crane base -->
+    <rect x="220" y="380" width="72" height="80" rx="4"/>
+    <!-- Crane tower -->
+    <rect x="240" y="120" width="32" height="260" rx="2"/>
+    <!-- Crane arm -->
+    <rect x="140" y="100" width="232" height="24" rx="4"/>
+    <!-- Crane hook cable -->
+    <rect x="320" y="124" width="4" height="120"/>
+    <!-- Crane hook -->
+    <circle cx="322" cy="252" r="12"/>
+    <!-- Counter weight -->
+    <rect x="140" y="80" width="48" height="48" rx="4"/>
+  </g>
+</svg>
