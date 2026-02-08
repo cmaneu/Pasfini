@@ -107,11 +107,11 @@ export async function exportPDF(issues: Issue[], rooms: Room[], assignees?: Assi
       // Assignee
       if (issue.assigneeSlug) {
         const assigneeName = assigneeMap.get(issue.assigneeSlug) || issue.assigneeSlug;
-        doc.setFontSize(9);
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.setTextColor(75, 85, 99);
-        doc.text(`Assigné à : ${assigneeName}`, margin + 10, y + 1);
-        y += 4;
+        doc.setTextColor(55, 65, 81); // Darker gray for better visibility
+        doc.text(`👤 Assigné à : ${assigneeName}`, margin + 10, y + 1);
+        y += 5;
       }
 
       // Description
