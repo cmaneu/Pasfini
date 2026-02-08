@@ -1,5 +1,5 @@
 // Main application entry point
-import type { Issue, Room } from './types.ts';
+import type { Issue, PhotoRef, Room } from './types.ts';
 import {
   getRooms,
   getLastRoomSlug,
@@ -541,9 +541,9 @@ async function showEditModal(issue: Issue): Promise<void> {
   overlay.querySelector('#edit-form')!.addEventListener('submit', handleEditSubmit);
 }
 
-let existingPhotosRef: import('./types.ts').PhotoRef[] = [];
+let existingPhotosRef: PhotoRef[] = [];
 
-function renderEditPhotos(existingPhotos: import('./types.ts').PhotoRef[]): void {
+function renderEditPhotos(existingPhotos: PhotoRef[]): void {
   existingPhotosRef = existingPhotos;
   const container = document.getElementById('edit-photos');
   if (!container) return;
