@@ -2,6 +2,7 @@ const CACHE_NAME = 'pasfini-v1';
 const urlsToCache = [
   '/Pasfini/',
   '/Pasfini/index.html',
+  '/Pasfini/manifest.webmanifest',
 ];
 
 // Install event - cache essential files
@@ -42,7 +43,7 @@ self.addEventListener('fetch', (event) => {
 
         return fetch(event.request).then((response) => {
           // Check if valid response
-          if (!response || response.status !== 200 || response.type !== 'basic') {
+          if (!response || !response.ok) {
             return response;
           }
 
