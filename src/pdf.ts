@@ -110,7 +110,7 @@ export async function exportPDF(issues: Issue[], rooms: Room[], assignees?: Assi
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(55, 65, 81); // Darker gray for better visibility
-        doc.text(`👤 Assigné à : ${assigneeName}`, margin + 10, y + 1);
+        doc.text(`Assigné à : ${assigneeName}`, margin + 10, y + 1);
         y += 5;
       }
 
