@@ -4,6 +4,19 @@ import type { Issue, Room } from './types.ts';
 import { getPhotosByIssue } from './db.ts';
 import { blobToDataUrl } from './photos.ts';
 
+function addPageNumbers(doc: jsPDF): void {
+  const totalPages = doc.getNumberOfPages();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(156, 163, 175);
+    doc.text(`${i} / ${totalPages}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+  }
+}
+
 export async function exportPDF(issues: Issue[], rooms: Room[]): Promise<void> {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -16,7 +29,7 @@ export async function exportPDF(issues: Issue[], rooms: Room[]): Promise<void> {
   // Title
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.text('Réserves chantier — Pasfini', margin, y + 7);
+  doc.text('Réserves chantier', margin, y + 7);
   y += 14;
 
   doc.setFontSize(10);
@@ -54,6 +67,7 @@ export async function exportPDF(issues: Issue[], rooms: Room[]): Promise<void> {
     // Room header
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
+    doc.setTextColor(31, 41, 55);
     doc.setFillColor(219, 234, 254); // blue-100
     doc.roundedRect(margin, y - 4, contentWidth, 9, 1, 1, 'F');
     doc.text(roomName, margin + 3, y + 2);
@@ -65,13 +79,22 @@ export async function exportPDF(issues: Issue[], rooms: Room[]): Promise<void> {
         y = margin;
       }
 
-      // Status indicator
-      const statusText = issue.status === 'done' ? '✓' : '○';
-      const statusColor = issue.status === 'done' ? [22, 163, 74] : [234, 179, 8];
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
-      doc.text(statusText, margin + 2, y + 1);
+      // Status indicator — draw a circle/checkmark using PDF primitives
+      if (issue.status === 'done') {
+        // Filled green circle with white checkmark
+        doc.setFillColor(22, 163, 74);
+        doc.circle(margin + 4, y - 0.5, 2.5, 'F');
+        doc.setDrawColor(255, 255, 255);
+        doc.setLineWidth(0.5);
+        // Simple check shape: two small lines
+        doc.line(margin + 2.8, y - 0.5, margin + 3.8, y + 0.5);
+        doc.line(margin + 3.8, y + 0.5, margin + 5.3, y - 1.5);
+      } else {
+        // Open yellow circle
+        doc.setDrawColor(234, 179, 8);
+        doc.setLineWidth(0.5);
+        doc.circle(margin + 4, y - 0.5, 2.5, 'S');
+      }
 
       // Title
       doc.setTextColor(31, 41, 55); // gray-800
@@ -102,8 +125,9 @@ export async function exportPDF(issues: Issue[], rooms: Room[]): Promise<void> {
         const photos = await getPhotosByIssue(issue.id);
         if (photos.length > 0) {
           let photoX = margin + 10;
-          const photoSize = 35;
-          const photosPerRow = Math.floor((contentWidth - 10) / (photoSize + 3));
+          const photoSize = 55;
+          const photoGap = 4;
+          const photosPerRow = Math.floor((contentWidth - 10 + photoGap) / (photoSize + photoGap));
 
           for (let i = 0; i < photos.length; i++) {
             if (y + photoSize > 275) {
@@ -115,11 +139,11 @@ export async function exportPDF(issues: Issue[], rooms: Room[]): Promise<void> {
             try {
               const dataUrl = await blobToDataUrl(photos[i].blob);
               doc.addImage(dataUrl, 'JPEG', photoX, y, photoSize, photoSize);
-              photoX += photoSize + 3;
+              photoX += photoSize + photoGap;
 
               if ((i + 1) % photosPerRow === 0) {
                 photoX = margin + 10;
-                y += photoSize + 3;
+                y += photoSize + photoGap;
               }
             } catch {
               // Skip failed photos
@@ -137,5 +161,6 @@ export async function exportPDF(issues: Issue[], rooms: Room[]): Promise<void> {
     y += 5;
   }
 
-  doc.save('pasfini-reserves.pdf');
+  addPageNumbers(doc);
+  doc.save('reserves.pdf');
 }
