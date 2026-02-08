@@ -19,8 +19,9 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
   const DEFAULT_EXTENSION = 'jpg';
 
   // Collect all data for JSON and markdown
+  const exportDate = new Date();
   const exportData = {
-    exportDate: new Date().toISOString(),
+    exportDate: exportDate.toISOString(),
     totalIssues: issues.length,
     openIssues: issues.filter((i) => i.status === 'open').length,
     doneIssues: issues.filter((i) => i.status === 'done').length,
@@ -29,7 +30,6 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
   };
 
   // Prepare markdown content
-  const exportDate = new Date();
   let markdownContent = `# Réserves chantier — Pasfini\n\n`;
   markdownContent += `**Exporté le :** ${exportDate.toLocaleDateString('fr-FR')} à ${exportDate.toLocaleTimeString('fr-FR')}\n\n`;
   markdownContent += `**Total :** ${issues.length} réserve(s) — ${exportData.openIssues} ouverte(s), ${exportData.doneIssues} terminée(s)\n\n`;
