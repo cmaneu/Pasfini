@@ -43,6 +43,20 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
     (roomMap.get(a) || a).localeCompare(roomMap.get(b) || b, 'fr')
   );
 
+  // Helper function to create issue export data
+  const createIssueExportData = (issue: Issue, roomName: string, photoRefs: string[]) => ({
+    id: issue.id,
+    roomSlug: issue.roomSlug,
+    roomName: roomName,
+    title: issue.title,
+    description: issue.description,
+    status: issue.status,
+    createdAt: new Date(issue.createdAt).toISOString(),
+    updatedAt: new Date(issue.updatedAt).toISOString(),
+    photoCount: photoRefs.length,
+    photos: photoRefs,
+  });
+
   // Process each room
   for (const slug of sortedSlugs) {
     const roomIssues = grouped.get(slug)!;
@@ -75,7 +89,8 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
             const photo = photos[i];
             
             // Generate unique filename
-            const extension = photo.mimeType.split('/')[1] || 'jpg';
+            const mimeType = photo.mimeType || 'image/jpeg';
+            const extension = mimeType.includes('/') ? mimeType.split('/')[1] : 'jpg';
             const baseFilename = `${issue.id}-${i + 1}`;
             let filename = `${baseFilename}.${extension}`;
             
@@ -100,34 +115,12 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
         }
 
         // Add to JSON data
-        exportData.issues.push({
-          id: issue.id,
-          roomSlug: issue.roomSlug,
-          roomName: roomName,
-          title: issue.title,
-          description: issue.description,
-          status: issue.status,
-          createdAt: new Date(issue.createdAt).toISOString(),
-          updatedAt: new Date(issue.updatedAt).toISOString(),
-          photoCount: photos.length,
-          photos: photoRefs,
-        });
+        exportData.issues.push(createIssueExportData(issue, roomName, photoRefs));
       } catch (err) {
         console.error('Error processing photos for issue:', issue.id, err);
         markdownContent += `**Photos :** Erreur de chargement\n\n`;
         
-        exportData.issues.push({
-          id: issue.id,
-          roomSlug: issue.roomSlug,
-          roomName: roomName,
-          title: issue.title,
-          description: issue.description,
-          status: issue.status,
-          createdAt: new Date(issue.createdAt).toISOString(),
-          updatedAt: new Date(issue.updatedAt).toISOString(),
-          photoCount: 0,
-          photos: [],
-        });
+        exportData.issues.push(createIssueExportData(issue, roomName, []));
       }
 
       markdownContent += `---\n\n`;
