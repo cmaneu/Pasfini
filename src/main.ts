@@ -14,7 +14,8 @@ import {
 } from './db.ts';
 import { generateId, processPhoto } from './photos.ts';
 import { exportPDF } from './pdf.ts';
-import { exportZip } from './zip.ts';
+import { exportZip, importZip } from './zip.ts';
+import type { ImportMode } from './zip.ts';
 
 // --- State ---
 let rooms: Room[] = [];
@@ -53,6 +54,10 @@ async function init(): Promise<void> {
   // Export buttons
   document.getElementById('btn-export-pdf')!.addEventListener('click', handleExportPDF);
   document.getElementById('btn-export-zip')!.addEventListener('click', handleExportZip);
+
+  // Import button
+  document.getElementById('btn-import-zip')!.addEventListener('click', handleImportZipClick);
+  document.getElementById('import-zip-input')!.addEventListener('change', handleImportZipFile);
 
   // Photo input (add form)
   document.getElementById('photo-input')!.addEventListener('change', handlePhotoInput);
@@ -785,6 +790,84 @@ async function handleExportZip(): Promise<void> {
   } catch (err) {
     console.error('ZIP export error:', err);
     showToast('❌ Erreur lors de l\'export');
+  }
+}
+
+// --- Import ---
+function handleImportZipClick(): void {
+  (document.getElementById('import-zip-input') as HTMLInputElement).value = '';
+  document.getElementById('import-zip-input')!.click();
+}
+
+async function handleImportZipFile(e: Event): Promise<void> {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+
+  // Check if there is existing data
+  if (issues.length > 0) {
+    showImportConflictModal(file);
+  } else {
+    await performImport(file, 'replace');
+  }
+}
+
+function showImportConflictModal(file: File): void {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'import-modal';
+
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-title">
+        <span>📥 Importer des données</span>
+        <button class="btn btn-sm btn-secondary" id="import-close">✕</button>
+      </div>
+      <p style="font-size: 0.9375rem; color: var(--gray-700); margin-bottom: 0.5rem;">
+        Il y a déjà <strong>${issues.length} réserve(s)</strong> enregistrée(s). Que souhaitez-vous faire ?
+      </p>
+      <div class="import-modal-actions">
+        <button class="btn btn-primary" id="import-merge">🔀 Fusionner — Ajouter les données importées aux données existantes</button>
+        <button class="btn btn-danger" id="import-replace">🗑️ Remplacer — Supprimer les données existantes et les remplacer</button>
+        <button class="btn btn-secondary" id="import-cancel">Annuler</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const closeModal = () => overlay.remove();
+
+  overlay.querySelector('#import-close')!.addEventListener('click', closeModal);
+  overlay.querySelector('#import-cancel')!.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (ev) => {
+    if (ev.target === overlay) closeModal();
+  });
+
+  overlay.querySelector('#import-merge')!.addEventListener('click', async () => {
+    closeModal();
+    await performImport(file, 'merge');
+  });
+
+  overlay.querySelector('#import-replace')!.addEventListener('click', async () => {
+    closeModal();
+    await performImport(file, 'replace');
+  });
+}
+
+async function performImport(file: File, mode: ImportMode): Promise<void> {
+  showToast('⏳ Importation en cours...');
+  try {
+    const result = await importZip(file, mode);
+    // Reload data
+    rooms = getRooms();
+    issues = await getAllIssues();
+    updateIssueCount();
+    renderCurrentView();
+    showToast(`📥 Importé : ${result.issueCount} réserve(s), ${result.photoCount} photo(s)`);
+  } catch (err) {
+    console.error('Import error:', err);
+    showToast('❌ Erreur lors de l\'importation');
   }
 }
 
