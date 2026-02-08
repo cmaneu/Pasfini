@@ -217,7 +217,20 @@ export async function importZip(file: File, mode: ImportMode): Promise<{ issueCo
         typeof (r as Room).name === 'string' && (r as Room).name.length > 0
     );
     if (validRooms.length > 0) {
-      localStorage.setItem('rooms', JSON.stringify(validRooms));
+      if (mode === 'merge') {
+        // Merge rooms: add imported rooms that don't already exist by slug
+        const existingRoomsJson = localStorage.getItem('rooms');
+        const existingRooms: Room[] = existingRoomsJson ? JSON.parse(existingRoomsJson) : [];
+        const existingSlugs = new Set(existingRooms.map((r) => r.slug));
+        for (const room of validRooms) {
+          if (!existingSlugs.has(room.slug)) {
+            existingRooms.push(room);
+          }
+        }
+        localStorage.setItem('rooms', JSON.stringify(existingRooms));
+      } else {
+        localStorage.setItem('rooms', JSON.stringify(validRooms));
+      }
     }
   }
 
