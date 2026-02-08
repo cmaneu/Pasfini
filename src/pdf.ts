@@ -1,6 +1,6 @@
 // PDF export using jsPDF
 import { jsPDF } from 'jspdf';
-import type { Issue, Room } from './types.ts';
+import type { Issue, Room, Assignee } from './types.ts';
 import { getPhotosByIssue } from './db.ts';
 import { blobToDataUrl } from './photos.ts';
 
@@ -17,7 +17,7 @@ function addPageNumbers(doc: jsPDF): void {
   }
 }
 
-export async function exportPDF(issues: Issue[], rooms: Room[]): Promise<void> {
+export async function exportPDF(issues: Issue[], rooms: Room[], assignees?: Assignee[]): Promise<void> {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 15;
@@ -25,6 +25,7 @@ export async function exportPDF(issues: Issue[], rooms: Room[]): Promise<void> {
   let y = margin;
 
   const roomMap = new Map(rooms.map((r) => [r.slug, r.name]));
+  const assigneeMap = new Map((assignees || []).map((a) => [a.slug, a.name]));
 
   // Title
   doc.setFontSize(20);
@@ -102,6 +103,16 @@ export async function exportPDF(issues: Issue[], rooms: Room[]): Promise<void> {
       doc.setFont('helvetica', 'bold');
       doc.text(issue.title, margin + 10, y + 1);
       y += 5;
+
+      // Assignee
+      if (issue.assigneeSlug) {
+        const assigneeName = assigneeMap.get(issue.assigneeSlug) || issue.assigneeSlug;
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(75, 85, 99);
+        doc.text(`Assigné à : ${assigneeName}`, margin + 10, y + 1);
+        y += 4;
+      }
 
       // Description
       if (issue.description) {

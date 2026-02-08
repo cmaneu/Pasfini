@@ -1,5 +1,5 @@
 // Main application entry point
-import type { Issue, PhotoRef, Room } from './types.ts';
+import type { Issue, PhotoRef, Room, Assignee } from './types.ts';
 import {
   getRooms,
   getLastRoomSlug,
@@ -11,6 +11,8 @@ import {
   savePhoto,
   getPhotosByIssue,
   deletePhoto,
+  getAssignees,
+  saveAssignees,
 } from './db.ts';
 import { generateId, processPhoto } from './photos.ts';
 import { exportPDF } from './pdf.ts';
@@ -19,10 +21,12 @@ import type { ImportMode } from './zip.ts';
 
 // --- State ---
 let rooms: Room[] = [];
+let assignees: Assignee[] = [];
 let issues: Issue[] = [];
 let currentView: 'add' | 'list' = 'add';
 let statusFilter: 'all' | 'open' | 'done' = 'all';
 let roomFilter: string = 'all'; // 'all' or room slug
+let assigneeFilter: string = 'all'; // 'all', '' (unassigned), or assignee slug
 
 // Pending photos for the add form (before saving)
 interface PendingPhoto {
@@ -41,6 +45,7 @@ const app = document.getElementById('app')!;
 // --- Initialization ---
 async function init(): Promise<void> {
   rooms = getRooms();
+  assignees = getAssignees();
   issues = await getAllIssues();
   updateIssueCount();
 
@@ -59,6 +64,9 @@ async function init(): Promise<void> {
   // Import button
   document.getElementById('btn-import-zip')!.addEventListener('click', handleImportZipClick);
   document.getElementById('import-zip-input')!.addEventListener('change', handleImportZipFile);
+
+  // Manage assignees button
+  document.getElementById('btn-manage-assignees')!.addEventListener('click', showManageAssigneesModal);
 
   // Photo input (add form)
   document.getElementById('photo-input')!.addEventListener('change', handlePhotoInput);
@@ -125,6 +133,14 @@ function renderAddView(): void {
         <label class="form-label" for="add-room">Pièce</label>
         <select class="form-select" id="add-room" required>
           ${rooms.map((r) => `<option value="${escapeHtml(r.slug)}" ${r.slug === validSlug ? 'selected' : ''}>${escapeHtml(r.name)}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="add-assignee">Assigné à</label>
+        <select class="form-select" id="add-assignee">
+          <option value="">— Non assigné —</option>
+          ${assignees.map((a) => `<option value="${escapeHtml(a.slug)}">${escapeHtml(a.name)}</option>`).join('')}
         </select>
       </div>
 
@@ -288,6 +304,7 @@ async function handlePaste(e: ClipboardEvent): Promise<void> {
 async function handleAddSubmit(e: Event): Promise<void> {
   e.preventDefault();
   const roomSlug = (document.getElementById('add-room') as HTMLSelectElement).value;
+  const assigneeSlug = (document.getElementById('add-assignee') as HTMLSelectElement).value || undefined;
   const title = (document.getElementById('add-title') as HTMLInputElement).value.trim();
   const description = (document.getElementById('add-desc') as HTMLTextAreaElement).value.trim();
 
@@ -317,6 +334,7 @@ async function handleAddSubmit(e: Event): Promise<void> {
   const issue: Issue = {
     id: issueId,
     roomSlug,
+    assigneeSlug,
     title,
     description,
     status: 'open',
@@ -342,7 +360,7 @@ async function handleAddSubmit(e: Event): Promise<void> {
 
 // --- List View ---
 function renderListView(): void {
-  // Apply both status and room filters
+  // Apply status, room, and assignee filters
   let filtered = issues;
   
   // Filter by status
@@ -355,10 +373,21 @@ function renderListView(): void {
     filtered = filtered.filter((i) => i.roomSlug === roomFilter);
   }
 
+  // Filter by assignee
+  if (assigneeFilter !== 'all') {
+    if (assigneeFilter === '') {
+      filtered = filtered.filter((i) => !i.assigneeSlug);
+    } else {
+      filtered = filtered.filter((i) => i.assigneeSlug === assigneeFilter);
+    }
+  }
+
   // Calculate counts in a single pass
   let openCount = 0;
   let doneCount = 0;
   const roomCounts = new Map<string, number>();
+  const assigneeCounts = new Map<string, number>();
+  let unassignedCount = 0;
   
   for (const issue of issues) {
     if (issue.status === 'open') openCount++;
@@ -366,7 +395,16 @@ function renderListView(): void {
     
     const count = roomCounts.get(issue.roomSlug) || 0;
     roomCounts.set(issue.roomSlug, count + 1);
+
+    if (issue.assigneeSlug) {
+      const ac = assigneeCounts.get(issue.assigneeSlug) || 0;
+      assigneeCounts.set(issue.assigneeSlug, ac + 1);
+    } else {
+      unassignedCount++;
+    }
   }
+
+  const assigneeMap = new Map(assignees.map((a) => [a.slug, a.name]));
 
   let html = `
     <div class="filter-bar">
@@ -387,6 +425,24 @@ function renderListView(): void {
   }
   
   html += `</div>`;
+
+  // Add assignee filter chips (only if there are assignees configured)
+  if (assignees.length > 0) {
+    html += `
+      <div class="filter-bar">
+        <button class="filter-chip ${assigneeFilter === 'all' ? 'active' : ''}" data-assignee-filter="all">Tous</button>
+    `;
+    if (unassignedCount > 0) {
+      html += `<button class="filter-chip ${assigneeFilter === '' ? 'active' : ''}" data-assignee-filter="">Non assigné (${unassignedCount})</button>`;
+    }
+    for (const assignee of assignees) {
+      const assigneeIssueCount = assigneeCounts.get(assignee.slug) || 0;
+      if (assigneeIssueCount > 0) {
+        html += `<button class="filter-chip ${assigneeFilter === assignee.slug ? 'active' : ''}" data-assignee-filter="${escapeHtml(assignee.slug)}">${escapeHtml(assignee.name)} (${assigneeIssueCount})</button>`;
+      }
+    }
+    html += `</div>`;
+  }
 
   if (filtered.length === 0) {
     html += `
@@ -422,6 +478,7 @@ function renderListView(): void {
           ? '<span class="badge badge-done">Terminé</span>'
           : '<span class="badge badge-open">Ouvert</span>';
         const photoIcon = issue.photos.length > 0 ? `📷 ${issue.photos.length}` : '';
+        const assigneeName = issue.assigneeSlug ? assigneeMap.get(issue.assigneeSlug) || issue.assigneeSlug : '';
         html += `
           <div class="issue-item" data-issue-id="${escapeHtml(issue.id)}">
             <div class="issue-info">
@@ -433,8 +490,13 @@ function renderListView(): void {
               <div class="issue-meta">
                 ${new Date(issue.createdAt).toLocaleDateString('fr-FR')}
                 ${photoIcon ? ` · ${photoIcon}` : ''}
+                ${assigneeName ? ` · 👤 ${escapeHtml(assigneeName)}` : ''}
               </div>
             </div>
+            ${assignees.length > 0 ? `<select class="quick-assign-select" data-issue-id="${escapeHtml(issue.id)}" title="Assigner rapidement">
+              <option value="" ${!issue.assigneeSlug ? 'selected' : ''}>👤</option>
+              ${assignees.map((a) => `<option value="${escapeHtml(a.slug)}" ${issue.assigneeSlug === a.slug ? 'selected' : ''}>${escapeHtml(a.name)}</option>`).join('')}
+            </select>` : ''}
           </div>
         `;
       }
@@ -460,6 +522,37 @@ function renderListView(): void {
     });
   });
 
+  // Assignee filter chips
+  app.querySelectorAll('[data-assignee-filter]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      assigneeFilter = (chip as HTMLElement).dataset.assigneeFilter ?? 'all';
+      renderListView();
+    });
+  });
+
+  // Quick-assign selects
+  app.querySelectorAll('.quick-assign-select').forEach((select) => {
+    select.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+    select.addEventListener('change', async (e) => {
+      e.stopPropagation();
+      const sel = e.target as HTMLSelectElement;
+      const issueId = sel.dataset.issueId!;
+      const newAssignee = sel.value || undefined;
+      const issue = await getIssue(issueId);
+      if (issue) {
+        issue.assigneeSlug = newAssignee;
+        issue.updatedAt = Date.now();
+        await saveIssue(issue);
+        issues = await getAllIssues();
+        renderListView();
+        const assigneeName = newAssignee ? (assignees.find((a) => a.slug === newAssignee)?.name || newAssignee) : 'personne';
+        showToast(`👤 Assigné à ${assigneeName}`);
+      }
+    });
+  });
+
   // Issue click -> detail
   app.querySelectorAll('.issue-item').forEach((item) => {
     item.addEventListener('click', () => {
@@ -475,6 +568,7 @@ async function showIssueDetail(id: string): Promise<void> {
   if (!issue) return;
 
   const roomName = rooms.find((r) => r.slug === issue.roomSlug)?.name || issue.roomSlug;
+  const assigneeName = issue.assigneeSlug ? (assignees.find((a) => a.slug === issue.assigneeSlug)?.name || issue.assigneeSlug) : '';
   const photos = await getPhotosByIssue(id);
 
   const overlay = document.createElement('div');
@@ -502,6 +596,7 @@ async function showIssueDetail(id: string): Promise<void> {
       <div style="margin-bottom: 0.75rem;">
         <span class="badge ${issue.status === 'done' ? 'badge-done' : 'badge-open'}">${issue.status === 'done' ? 'Terminé' : 'Ouvert'}</span>
         <span style="margin-left: 0.5rem; font-size: 0.8125rem; color: var(--gray-500);">${escapeHtml(roomName)}</span>
+        ${assigneeName ? `<span style="margin-left: 0.5rem; font-size: 0.8125rem; color: var(--gray-500);">· 👤 ${escapeHtml(assigneeName)}</span>` : ''}
       </div>
       ${issue.description ? `<p style="font-size: 0.9375rem; color: var(--gray-700); margin-bottom: 0.75rem;">${escapeHtml(issue.description)}</p>` : ''}
       <div style="font-size: 0.75rem; color: var(--gray-400);">
@@ -604,6 +699,13 @@ async function showEditModal(issue: Issue): Promise<void> {
           <label class="form-label" for="edit-room">Pièce</label>
           <select class="form-select" id="edit-room" required>
             ${rooms.map((r) => `<option value="${escapeHtml(r.slug)}" ${r.slug === issue.roomSlug ? 'selected' : ''}>${escapeHtml(r.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-assignee">Assigné à</label>
+          <select class="form-select" id="edit-assignee">
+            <option value="">— Non assigné —</option>
+            ${assignees.map((a) => `<option value="${escapeHtml(a.slug)}" ${issue.assigneeSlug === a.slug ? 'selected' : ''}>${escapeHtml(a.name)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
@@ -749,6 +851,7 @@ async function handleEditSubmit(e: Event): Promise<void> {
   if (!editIssueRef) return;
 
   const roomSlug = (document.getElementById('edit-room') as HTMLSelectElement).value;
+  const assigneeSlug = (document.getElementById('edit-assignee') as HTMLSelectElement).value || undefined;
   const title = (document.getElementById('edit-title') as HTMLInputElement).value.trim();
   const description = (document.getElementById('edit-desc') as HTMLTextAreaElement).value.trim();
 
@@ -778,6 +881,7 @@ async function handleEditSubmit(e: Event): Promise<void> {
   }
 
   editIssueRef.roomSlug = roomSlug;
+  editIssueRef.assigneeSlug = assigneeSlug;
   editIssueRef.title = title;
   editIssueRef.description = description;
   editIssueRef.photos = editExistingPhotoIds;
@@ -802,6 +906,101 @@ function cleanupEditPhotos(): void {
   editIssueRef = null;
 }
 
+// --- Manage Assignees Modal ---
+function showManageAssigneesModal(): void {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'assignees-modal';
+
+  function renderAssigneeList(): string {
+    if (assignees.length === 0) {
+      return '<p style="color: var(--gray-500); font-size: 0.875rem; text-align: center; margin: 1rem 0;">Aucun assigné configuré</p>';
+    }
+    return assignees.map((a) => `
+      <div class="assignee-row" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--gray-100);">
+        <span style="flex: 1; font-size: 0.9375rem;">${escapeHtml(a.name)}</span>
+        <button class="btn btn-sm btn-danger assignee-delete" data-slug="${escapeHtml(a.slug)}" title="Supprimer">🗑️</button>
+      </div>
+    `).join('');
+  }
+
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-title">
+        <span>👥 Gérer les assignés</span>
+        <button class="btn btn-sm btn-secondary" id="assignees-close">✕</button>
+      </div>
+      <div id="assignee-list">
+        ${renderAssigneeList()}
+      </div>
+      <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+        <input class="form-input" id="new-assignee-name" type="text" placeholder="Nom du nouvel assigné" maxlength="100" style="flex: 1;" />
+        <button class="btn btn-primary" id="add-assignee-btn">➕</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  function refreshList(): void {
+    const listEl = document.getElementById('assignee-list');
+    if (listEl) listEl.innerHTML = renderAssigneeList();
+    bindDeleteButtons();
+  }
+
+  function bindDeleteButtons(): void {
+    overlay.querySelectorAll('.assignee-delete').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const slug = (btn as HTMLElement).dataset.slug!;
+        assignees = assignees.filter((a) => a.slug !== slug);
+        saveAssignees(assignees);
+        refreshList();
+      });
+    });
+  }
+
+  // Close
+  overlay.querySelector('#assignees-close')!.addEventListener('click', () => {
+    overlay.remove();
+    renderCurrentView();
+  });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+      renderCurrentView();
+    }
+  });
+
+  // Add assignee
+  overlay.querySelector('#add-assignee-btn')!.addEventListener('click', () => {
+    const input = document.getElementById('new-assignee-name') as HTMLInputElement;
+    const name = input.value.trim();
+    if (!name) return;
+    const slug = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (!slug) return;
+    if (assignees.some((a) => a.slug === slug)) {
+      showToast('⚠️ Cet assigné existe déjà');
+      return;
+    }
+    assignees.push({ slug, name });
+    assignees.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+    saveAssignees(assignees);
+    input.value = '';
+    refreshList();
+    showToast('✅ Assigné ajouté');
+  });
+
+  // Allow Enter key to add
+  overlay.querySelector('#new-assignee-name')!.addEventListener('keydown', (e) => {
+    if ((e as KeyboardEvent).key === 'Enter') {
+      e.preventDefault();
+      (document.getElementById('add-assignee-btn') as HTMLButtonElement).click();
+    }
+  });
+
+  bindDeleteButtons();
+}
+
 // --- Export ---
 async function handleExportPDF(): Promise<void> {
   if (issues.length === 0) {
@@ -810,7 +1009,7 @@ async function handleExportPDF(): Promise<void> {
   }
   showToast('⏳ Génération du PDF...');
   try {
-    await exportPDF(issues, rooms);
+    await exportPDF(issues, rooms, assignees);
     showToast('📄 PDF exporté !');
   } catch (err) {
     console.error('PDF export error:', err);
@@ -825,7 +1024,7 @@ async function handleExportZip(): Promise<void> {
   }
   showToast('⏳ Génération du ZIP...');
   try {
-    await exportZip(issues, rooms);
+    await exportZip(issues, rooms, assignees);
     showToast('📦 ZIP exporté !');
   } catch (err) {
     console.error('ZIP export error:', err);
@@ -901,6 +1100,7 @@ async function performImport(file: File, mode: ImportMode): Promise<void> {
     const result = await importZip(file, mode);
     // Reload data
     rooms = getRooms();
+    assignees = getAssignees();
     issues = await getAllIssues();
     updateIssueCount();
     renderCurrentView();

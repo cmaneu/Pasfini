@@ -5,9 +5,15 @@ export interface Room {
   name: string;
 }
 
+export interface Assignee {
+  slug: string;
+  name: string;
+}
+
 export interface Issue {
   id: string;
   roomSlug: string;
+  assigneeSlug?: string;
   title: string;
   description: string;
   status: 'open' | 'done';
@@ -45,3 +51,5 @@ export const DEFAULT_ROOMS: Room[] = [
   { slug: 'exterieur', name: 'Extérieur' },
   { slug: 'wc-rdc', name: 'WC RDC' },
 ];
+
+export const DEFAULT_ASSIGNEES: Assignee[] = [];

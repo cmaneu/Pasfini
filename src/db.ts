@@ -1,6 +1,6 @@
 // Database layer using IndexedDB and localStorage
-import type { Issue, PhotoRef, Room } from './types.ts';
-import { DEFAULT_ROOMS } from './types.ts';
+import type { Issue, PhotoRef, Room, Assignee } from './types.ts';
+import { DEFAULT_ROOMS, DEFAULT_ASSIGNEES } from './types.ts';
 
 const DB_NAME = 'pasfini';
 const DB_VERSION = 1;
@@ -55,6 +55,27 @@ export function getLastRoomSlug(): string | null {
 
 export function setLastRoomSlug(slug: string): void {
   localStorage.setItem('ui.lastRoomSlug', slug);
+}
+
+// --- Assignees (localStorage) ---
+
+export function getAssignees(): Assignee[] {
+  const stored = localStorage.getItem('assignees');
+  if (!stored) {
+    localStorage.setItem('assignees', JSON.stringify(DEFAULT_ASSIGNEES));
+    return [...DEFAULT_ASSIGNEES];
+  }
+  try {
+    const assignees = JSON.parse(stored) as Assignee[];
+    return assignees.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  } catch {
+    localStorage.setItem('assignees', JSON.stringify(DEFAULT_ASSIGNEES));
+    return [...DEFAULT_ASSIGNEES];
+  }
+}
+
+export function saveAssignees(assignees: Assignee[]): void {
+  localStorage.setItem('assignees', JSON.stringify(assignees));
 }
 
 // --- Issues (IndexedDB) ---
@@ -160,6 +181,7 @@ export async function clearAllData(): Promise<void> {
     tx.objectStore('photos').clear();
     tx.oncomplete = () => {
       localStorage.removeItem('rooms');
+      localStorage.removeItem('assignees');
       localStorage.removeItem('ui.lastRoomSlug');
       resolve();
     };
