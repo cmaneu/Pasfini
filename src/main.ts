@@ -56,8 +56,10 @@ async function init(): Promise<void> {
 
   // Photo input (add form)
   document.getElementById('photo-input')!.addEventListener('change', handlePhotoInput);
+  document.getElementById('photo-input-camera')!.addEventListener('change', handlePhotoInput);
   // Photo input (edit form)
   document.getElementById('edit-photo-input')!.addEventListener('change', handleEditPhotoInput);
+  document.getElementById('edit-photo-input-camera')!.addEventListener('change', handleEditPhotoInput);
 
   // Paste functionality for images
   document.addEventListener('paste', handlePaste);
@@ -133,9 +135,13 @@ function renderAddView(): void {
       <div class="form-group">
         <label class="form-label">Photos</label>
         <div class="photo-grid" id="add-photos">
-          <div class="photo-add-btn" id="add-photo-btn">
+          <div class="photo-add-btn" id="add-photo-btn-camera">
             <span>📷</span>
-            <span class="photo-add-label">Photo</span>
+            <span class="photo-add-label">Caméra</span>
+          </div>
+          <div class="photo-add-btn" id="add-photo-btn">
+            <span>🖼️</span>
+            <span class="photo-add-label">Galerie</span>
           </div>
         </div>
       </div>
@@ -150,6 +156,9 @@ function renderAddView(): void {
   document.getElementById('add-photo-btn')!.addEventListener('click', () => {
     document.getElementById('photo-input')!.click();
   });
+  document.getElementById('add-photo-btn-camera')!.addEventListener('click', () => {
+    document.getElementById('photo-input-camera')!.click();
+  });
 
   renderPendingPhotos();
 }
@@ -161,7 +170,7 @@ function renderPendingPhotos(): void {
   // Remove existing photo items (keep add button)
   container.querySelectorAll('.photo-grid-item').forEach((el) => el.remove());
 
-  const addBtn = document.getElementById('add-photo-btn')!;
+  const addBtn = document.getElementById('add-photo-btn-camera')!;
   for (const photo of pendingPhotos) {
     const item = document.createElement('div');
     item.className = 'photo-grid-item';
@@ -563,9 +572,13 @@ async function showEditModal(issue: Issue): Promise<void> {
         <div class="form-group">
           <label class="form-label">Photos</label>
           <div class="photo-grid" id="edit-photos">
-            <div class="photo-add-btn" id="edit-photo-btn">
+            <div class="photo-add-btn" id="edit-photo-btn-camera">
               <span>📷</span>
-              <span class="photo-add-label">Photo</span>
+              <span class="photo-add-label">Caméra</span>
+            </div>
+            <div class="photo-add-btn" id="edit-photo-btn">
+              <span>🖼️</span>
+              <span class="photo-add-label">Galerie</span>
             </div>
           </div>
         </div>
@@ -590,9 +603,12 @@ async function showEditModal(issue: Issue): Promise<void> {
     }
   });
 
-  // Photo button
+  // Photo buttons
   overlay.querySelector('#edit-photo-btn')!.addEventListener('click', () => {
     document.getElementById('edit-photo-input')!.click();
+  });
+  overlay.querySelector('#edit-photo-btn-camera')!.addEventListener('click', () => {
+    document.getElementById('edit-photo-input-camera')!.click();
   });
 
   // Render existing photos
@@ -610,7 +626,7 @@ function renderEditPhotos(existingPhotos: PhotoRef[]): void {
   if (!container) return;
 
   container.querySelectorAll('.photo-grid-item').forEach((el) => el.remove());
-  const addBtn = document.getElementById('edit-photo-btn')!;
+  const addBtn = document.getElementById('edit-photo-btn-camera')!;
 
   // Existing photos still kept
   for (const photo of existingPhotos) {

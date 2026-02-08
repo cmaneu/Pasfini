@@ -434,7 +434,9 @@
       .actions-row .btn { flex: 1; }
       /* Photo input hidden */
       #photo-input { display: none; }
+      #photo-input-camera { display: none; }
       #edit-photo-input { display: none; }
+      #edit-photo-input-camera { display: none; }
     </style>
   </head>
   <body>
@@ -455,7 +457,9 @@
 
     <!-- Hidden file inputs -->
     <input type="file" id="photo-input" accept="image/*" multiple />
+    <input type="file" id="photo-input-camera" accept="image/*" capture="environment" />
     <input type="file" id="edit-photo-input" accept="image/*" multiple />
+    <input type="file" id="edit-photo-input-camera" accept="image/*" capture="environment" />
 
     <script type="module" src="/src/main.ts"></script>
   </body>
