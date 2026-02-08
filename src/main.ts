@@ -78,6 +78,16 @@ async function init(): Promise<void> {
   // Paste functionality for images
   document.addEventListener('paste', handlePaste);
 
+  // Register service worker for PWA support
+  if ('serviceWorker' in navigator) {
+    try {
+      await navigator.serviceWorker.register('/Pasfini/sw.js', { scope: '/Pasfini/' });
+      console.log('Service Worker registered successfully');
+    } catch (error) {
+      console.log('Service Worker registration failed:', error);
+    }
+  }
+
   // Render initial view
   renderCurrentView();
 }

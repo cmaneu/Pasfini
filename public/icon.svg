@@ -1,0 +1,7 @@
+<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" fill="#1e40af" rx="64"/>
+  <g fill="white">
+    <!-- Checkmark icon -->
+    <path d="M 128 256 L 224 352 L 384 160" stroke="white" stroke-width="48" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+</svg>
