@@ -3,10 +3,10 @@ import JSZip from 'jszip';
 import type { Issue, PhotoRef, Room, Assignee } from './types.ts';
 import { getPhotosByIssue, saveIssue, savePhoto, clearAllData } from './db.ts';
 
-export async function exportZip(issues: Issue[], rooms: Room[], assignees?: Assignee[]): Promise<void> {
+export async function exportZip(issues: Issue[], rooms: Room[], assignees: Assignee[]): Promise<void> {
   const zip = new JSZip();
   const roomMap = new Map(rooms.map((r) => [r.slug, r.name]));
-  const assigneeMap = new Map((assignees || []).map((a) => [a.slug, a.name]));
+  const assigneeMap = new Map(assignees.map((a) => [a.slug, a.name]));
 
   // Create img folder
   const imgFolder = zip.folder('img');
@@ -27,7 +27,7 @@ export async function exportZip(issues: Issue[], rooms: Room[], assignees?: Assi
     openIssues: issues.filter((i) => i.status === 'open').length,
     doneIssues: issues.filter((i) => i.status === 'done').length,
     rooms: rooms,
-    assignees: assignees || [],
+    assignees: assignees,
     issues: [] as any[],
   };
 
@@ -35,6 +35,17 @@ export async function exportZip(issues: Issue[], rooms: Room[], assignees?: Assi
   let markdownContent = `# Réserves chantier — Pasfini\n\n`;
   markdownContent += `**Exporté le :** ${exportDate.toLocaleDateString('fr-FR')} à ${exportDate.toLocaleTimeString('fr-FR')}\n\n`;
   markdownContent += `**Total :** ${issues.length} réserve(s) — ${exportData.openIssues} ouverte(s), ${exportData.doneIssues} terminée(s)\n\n`;
+
+  // List rooms
+  if (rooms.length > 0) {
+    markdownContent += `**Pièces (${rooms.length}) :** ${rooms.map((r) => r.name).join(', ')}\n\n`;
+  }
+
+  // List assignees
+  if (assignees.length > 0) {
+    markdownContent += `**Intervenants (${assignees.length}) :** ${assignees.map((a) => a.name).join(', ')}\n\n`;
+  }
+
   markdownContent += `---\n\n`;
 
   // Group issues by room
@@ -192,7 +203,7 @@ export async function exportZip(issues: Issue[], rooms: Room[], assignees?: Assi
 
 export type ImportMode = 'replace' | 'merge';
 
-export async function importZip(file: File, mode: ImportMode): Promise<{ issueCount: number; photoCount: number }> {
+export async function importZip(file: File, mode: ImportMode): Promise<{ issueCount: number; photoCount: number; roomCount: number; assigneeCount: number }> {
   const zip = await JSZip.loadAsync(file);
 
   // Read report.json
@@ -217,6 +228,7 @@ export async function importZip(file: File, mode: ImportMode): Promise<{ issueCo
   }
 
   // Restore rooms if present
+  let roomCount = 0;
   if (reportData.rooms && Array.isArray(reportData.rooms)) {
     const validRooms = reportData.rooms.filter(
       (r: unknown): r is Room =>
@@ -233,16 +245,19 @@ export async function importZip(file: File, mode: ImportMode): Promise<{ issueCo
         for (const room of validRooms) {
           if (!existingSlugs.has(room.slug)) {
             existingRooms.push(room);
+            roomCount++;
           }
         }
         localStorage.setItem('rooms', JSON.stringify(existingRooms));
       } else {
         localStorage.setItem('rooms', JSON.stringify(validRooms));
+        roomCount = validRooms.length;
       }
     }
   }
 
   // Restore assignees if present
+  let assigneeCount = 0;
   if (reportData.assignees && Array.isArray(reportData.assignees)) {
     const validAssignees = reportData.assignees.filter(
       (a: unknown): a is Assignee =>
@@ -258,11 +273,13 @@ export async function importZip(file: File, mode: ImportMode): Promise<{ issueCo
         for (const assignee of validAssignees) {
           if (!existingSlugs.has(assignee.slug)) {
             existingAssignees.push(assignee);
+            assigneeCount++;
           }
         }
         localStorage.setItem('assignees', JSON.stringify(existingAssignees));
       } else {
         localStorage.setItem('assignees', JSON.stringify(validAssignees));
+        assigneeCount = validAssignees.length;
       }
     }
   }
@@ -354,5 +371,5 @@ export async function importZip(file: File, mode: ImportMode): Promise<{ issueCo
     issueCount++;
   }
 
-  return { issueCount, photoCount };
+  return { issueCount, photoCount, roomCount, assigneeCount };
 }
