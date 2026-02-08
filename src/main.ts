@@ -22,6 +22,7 @@ let rooms: Room[] = [];
 let issues: Issue[] = [];
 let currentView: 'add' | 'list' = 'add';
 let statusFilter: 'all' | 'open' | 'done' = 'all';
+let roomFilter: string = 'all'; // 'all' or room slug
 
 // Pending photos for the add form (before saving)
 interface PendingPhoto {
@@ -341,9 +342,18 @@ async function handleAddSubmit(e: Event): Promise<void> {
 
 // --- List View ---
 function renderListView(): void {
-  const filtered = statusFilter === 'all'
-    ? issues
-    : issues.filter((i) => i.status === statusFilter);
+  // Apply both status and room filters
+  let filtered = issues;
+  
+  // Filter by status
+  if (statusFilter !== 'all') {
+    filtered = filtered.filter((i) => i.status === statusFilter);
+  }
+  
+  // Filter by room
+  if (roomFilter !== 'all') {
+    filtered = filtered.filter((i) => i.roomSlug === roomFilter);
+  }
 
   const openCount = issues.filter((i) => i.status === 'open').length;
   const doneCount = issues.filter((i) => i.status === 'done').length;
@@ -354,7 +364,19 @@ function renderListView(): void {
       <button class="filter-chip ${statusFilter === 'open' ? 'active' : ''}" data-filter="open">Ouvert (${openCount})</button>
       <button class="filter-chip ${statusFilter === 'done' ? 'active' : ''}" data-filter="done">Terminé (${doneCount})</button>
     </div>
+    <div class="filter-bar">
+      <button class="filter-chip ${roomFilter === 'all' ? 'active' : ''}" data-room-filter="all">Toutes les pièces</button>
   `;
+  
+  // Add room filter chips
+  for (const room of rooms) {
+    const roomIssueCount = issues.filter((i) => i.roomSlug === room.slug).length;
+    if (roomIssueCount > 0) {
+      html += `<button class="filter-chip ${roomFilter === room.slug ? 'active' : ''}" data-room-filter="${escapeHtml(room.slug)}">${escapeHtml(room.name)} (${roomIssueCount})</button>`;
+    }
+  }
+  
+  html += `</div>`;
 
   if (filtered.length === 0) {
     html += `
@@ -412,10 +434,18 @@ function renderListView(): void {
 
   app.innerHTML = html;
 
-  // Filter chips
-  app.querySelectorAll('.filter-chip').forEach((chip) => {
+  // Status filter chips (only those with data-filter attribute)
+  app.querySelectorAll('[data-filter]').forEach((chip) => {
     chip.addEventListener('click', () => {
       statusFilter = (chip as HTMLElement).dataset.filter as typeof statusFilter;
+      renderListView();
+    });
+  });
+  
+  // Room filter chips
+  app.querySelectorAll('[data-room-filter]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      roomFilter = (chip as HTMLElement).dataset.roomFilter || 'all';
       renderListView();
     });
   });
