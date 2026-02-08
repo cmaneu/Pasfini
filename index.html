@@ -437,6 +437,30 @@
       #photo-input-camera { display: none; }
       #edit-photo-input { display: none; }
       #edit-photo-input-camera { display: none; }
+      #import-zip-input { display: none; }
+      /* Footer */
+      .app-footer {
+        background: var(--gray-100);
+        border-top: 1px solid var(--gray-200);
+        padding: 0.5rem 1rem;
+        text-align: center;
+      }
+      .app-footer .btn-ghost {
+        color: var(--gray-500);
+        font-size: 0.8125rem;
+      }
+      .app-footer .btn-ghost:hover {
+        background: var(--gray-200);
+        color: var(--gray-700);
+      }
+      /* Import modal */
+      .import-modal-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-top: 1rem;
+      }
+      .import-modal-actions .btn { width: 100%; }
     </style>
   </head>
   <body>
@@ -455,11 +479,16 @@
 
     <main class="main" id="app"></main>
 
+    <footer class="app-footer">
+      <button id="btn-import-zip" class="btn btn-ghost btn-sm" title="Importer ZIP">📥 Importer ZIP</button>
+    </footer>
+
     <!-- Hidden file inputs -->
     <input type="file" id="photo-input" accept="image/*" multiple />
     <input type="file" id="photo-input-camera" accept="image/*" capture="environment" />
     <input type="file" id="edit-photo-input" accept="image/*" multiple />
     <input type="file" id="edit-photo-input-camera" accept="image/*" capture="environment" />
+    <input type="file" id="import-zip-input" accept=".zip" />
 
     <script type="module" src="/src/main.ts"></script>
   </body>

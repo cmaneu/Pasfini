@@ -1,7 +1,7 @@
-// ZIP export functionality
+// ZIP export and import functionality
 import JSZip from 'jszip';
-import type { Issue, Room } from './types.ts';
-import { getPhotosByIssue } from './db.ts';
+import type { Issue, PhotoRef, Room } from './types.ts';
+import { getPhotosByIssue, saveIssue, savePhoto, clearAllData } from './db.ts';
 
 export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
   const zip = new JSZip();
@@ -49,7 +49,7 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
   );
 
   // Helper function to create issue export data
-  const createIssueExportData = (issue: Issue, roomName: string, photoRefs: string[]) => ({
+  const createIssueExportData = (issue: Issue, roomName: string, photoDetails: { path: string; id: string; mimeType: string; width: number; height: number; thumbnailPath: string; createdAt: string }[]) => ({
     id: issue.id,
     roomSlug: issue.roomSlug,
     roomName: roomName,
@@ -58,8 +58,8 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
     status: issue.status,
     createdAt: new Date(issue.createdAt).toISOString(),
     updatedAt: new Date(issue.updatedAt).toISOString(),
-    photoCount: photoRefs.length,
-    photos: photoRefs,
+    photoCount: photoDetails.length,
+    photos: photoDetails,
   });
 
   // Process each room
@@ -89,7 +89,7 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
       // Fetch and add photos
       try {
         const photos = await getPhotosByIssue(issue.id);
-        const photoRefs: string[] = [];
+        const photoDetails: { path: string; id: string; mimeType: string; width: number; height: number; thumbnailPath: string; createdAt: string }[] = [];
 
         if (photos.length > 0) {
           for (let i = 0; i < photos.length; i++) {
@@ -117,21 +117,40 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
             }
             usedFilenames.add(filename);
 
-            // Add photo to zip
+            // Generate unique thumbnail filename
+            const thumbBaseFilename = `${issue.id}-${i + 1}-thumb`;
+            let thumbFilename = `${thumbBaseFilename}.${extension}`;
+            let thumbCounter = 1;
+            while (usedFilenames.has(thumbFilename)) {
+              thumbFilename = `${thumbBaseFilename}-${thumbCounter}.${extension}`;
+              thumbCounter++;
+            }
+            usedFilenames.add(thumbFilename);
+
+            // Add photo and thumbnail to zip
             imgFolder.file(filename, photo.blob);
-            photoRefs.push(`img/${filename}`);
+            imgFolder.file(thumbFilename, photo.thumbnailBlob);
+            photoDetails.push({
+              path: `img/${filename}`,
+              id: photo.id,
+              mimeType: photo.mimeType,
+              width: photo.width,
+              height: photo.height,
+              thumbnailPath: `img/${thumbFilename}`,
+              createdAt: new Date(photo.createdAt).toISOString(),
+            });
           }
 
           markdownContent += `**Photos :** ${photos.length}\n\n`;
-          for (const ref of photoRefs) {
-            markdownContent += `![Photo](${ref})\n\n`;
+          for (const detail of photoDetails) {
+            markdownContent += `![Photo](${detail.path})\n\n`;
           }
         } else {
           markdownContent += `**Photos :** Aucune\n\n`;
         }
 
         // Add to JSON data
-        exportData.issues.push(createIssueExportData(issue, roomName, photoRefs));
+        exportData.issues.push(createIssueExportData(issue, roomName, photoDetails));
       } catch (err) {
         console.error('Error processing photos for issue:', issue.id, err);
         markdownContent += `**Photos :** Erreur de chargement\n\n`;
@@ -159,4 +178,134 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+// --- Import ZIP ---
+
+export type ImportMode = 'replace' | 'merge';
+
+export async function importZip(file: File, mode: ImportMode): Promise<{ issueCount: number; photoCount: number }> {
+  const zip = await JSZip.loadAsync(file);
+
+  // Read report.json
+  const reportFile = zip.file('report.json');
+  if (!reportFile) {
+    throw new Error('Fichier report.json introuvable dans le ZIP');
+  }
+
+  const reportText = await reportFile.async('string');
+  const reportData = JSON.parse(reportText);
+
+  if (!reportData.issues || !Array.isArray(reportData.issues)) {
+    throw new Error('Format de données invalide dans report.json');
+  }
+
+  // Safe image extensions allowlist
+  const SAFE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
+  // If replacing, clear all existing data
+  if (mode === 'replace') {
+    await clearAllData();
+  }
+
+  // Restore rooms if present
+  if (reportData.rooms && Array.isArray(reportData.rooms)) {
+    const validRooms = reportData.rooms.filter(
+      (r: unknown): r is Room =>
+        typeof r === 'object' && r !== null &&
+        typeof (r as Room).slug === 'string' && (r as Room).slug.length > 0 &&
+        typeof (r as Room).name === 'string' && (r as Room).name.length > 0
+    );
+    if (validRooms.length > 0) {
+      localStorage.setItem('rooms', JSON.stringify(validRooms));
+    }
+  }
+
+  let issueCount = 0;
+  let photoCount = 0;
+
+  for (const issueData of reportData.issues) {
+    // Validate required fields
+    if (!issueData.id || !issueData.roomSlug || !issueData.title) {
+      continue;
+    }
+
+    const status = issueData.status === 'done' ? 'done' : 'open';
+
+    // Restore photos
+    const photoIds: string[] = [];
+    if (issueData.photos && Array.isArray(issueData.photos)) {
+      for (const photoData of issueData.photos) {
+        // Support both old format (string paths) and new format (objects with metadata)
+        const isOldFormat = typeof photoData === 'string';
+        const photoPath = isOldFormat ? photoData : photoData.path;
+        if (!photoPath) continue;
+
+        // Validate file extension from path
+        const pathExtension = photoPath.split('.').pop()?.toLowerCase();
+        if (!pathExtension || !SAFE_EXTENSIONS.includes(pathExtension)) continue;
+
+        const photoFile = zip.file(photoPath);
+        if (!photoFile) continue;
+
+        const blob = await photoFile.async('blob');
+
+        // Try to load thumbnail
+        let thumbnailBlob: Blob;
+        const thumbPath = isOldFormat ? null : photoData.thumbnailPath;
+        if (thumbPath) {
+          const thumbExtension = thumbPath.split('.').pop()?.toLowerCase();
+          if (thumbExtension && SAFE_EXTENSIONS.includes(thumbExtension)) {
+            const thumbFile = zip.file(thumbPath);
+            if (thumbFile) {
+              thumbnailBlob = await thumbFile.async('blob');
+            } else {
+              thumbnailBlob = blob;
+            }
+          } else {
+            thumbnailBlob = blob;
+          }
+        } else {
+          thumbnailBlob = blob;
+        }
+
+        const photoId = isOldFormat ? crypto.randomUUID() : (photoData.id || crypto.randomUUID());
+        const mimeType = isOldFormat ? `image/${pathExtension === 'jpg' ? 'jpeg' : pathExtension}` : (photoData.mimeType || 'image/jpeg');
+        const width = isOldFormat ? 0 : (photoData.width || 0);
+        const height = isOldFormat ? 0 : (photoData.height || 0);
+        const photoCreatedAt = isOldFormat ? Date.now() : (photoData.createdAt ? new Date(photoData.createdAt).getTime() : Date.now());
+
+        const photoRef: PhotoRef = {
+          id: photoId,
+          issueId: issueData.id,
+          mimeType,
+          width,
+          height,
+          createdAt: photoCreatedAt,
+          blob,
+          thumbnailBlob,
+        };
+
+        await savePhoto(photoRef);
+        photoIds.push(photoId);
+        photoCount++;
+      }
+    }
+
+    const issue: Issue = {
+      id: issueData.id,
+      roomSlug: issueData.roomSlug,
+      title: issueData.title,
+      description: issueData.description || '',
+      status,
+      createdAt: issueData.createdAt ? new Date(issueData.createdAt).getTime() : Date.now(),
+      updatedAt: issueData.updatedAt ? new Date(issueData.updatedAt).getTime() : Date.now(),
+      photos: photoIds,
+    };
+
+    await saveIssue(issue);
+    issueCount++;
+  }
+
+  return { issueCount, photoCount };
 }

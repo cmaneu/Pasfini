@@ -149,3 +149,20 @@ export async function deletePhoto(id: string): Promise<void> {
     tx.onerror = () => reject(tx.error);
   });
 }
+
+// --- Clear all data (for import replace) ---
+
+export async function clearAllData(): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(['issues', 'photos'], 'readwrite');
+    tx.objectStore('issues').clear();
+    tx.objectStore('photos').clear();
+    tx.oncomplete = () => {
+      localStorage.removeItem('rooms');
+      localStorage.removeItem('ui.lastRoomSlug');
+      resolve();
+    };
+    tx.onerror = () => reject(tx.error);
+  });
+}
