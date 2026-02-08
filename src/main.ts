@@ -355,8 +355,18 @@ function renderListView(): void {
     filtered = filtered.filter((i) => i.roomSlug === roomFilter);
   }
 
-  const openCount = issues.filter((i) => i.status === 'open').length;
-  const doneCount = issues.filter((i) => i.status === 'done').length;
+  // Calculate counts in a single pass
+  let openCount = 0;
+  let doneCount = 0;
+  const roomCounts = new Map<string, number>();
+  
+  for (const issue of issues) {
+    if (issue.status === 'open') openCount++;
+    else if (issue.status === 'done') doneCount++;
+    
+    const count = roomCounts.get(issue.roomSlug) || 0;
+    roomCounts.set(issue.roomSlug, count + 1);
+  }
 
   let html = `
     <div class="filter-bar">
@@ -370,7 +380,7 @@ function renderListView(): void {
   
   // Add room filter chips
   for (const room of rooms) {
-    const roomIssueCount = issues.filter((i) => i.roomSlug === room.slug).length;
+    const roomIssueCount = roomCounts.get(room.slug) || 0;
     if (roomIssueCount > 0) {
       html += `<button class="filter-chip ${roomFilter === room.slug ? 'active' : ''}" data-room-filter="${escapeHtml(room.slug)}">${escapeHtml(room.name)} (${roomIssueCount})</button>`;
     }
