@@ -223,6 +223,9 @@ async function handlePaste(e: ClipboardEvent): Promise<void> {
   if (!isAddView && !isEditView) return;
 
   // Process pasted images
+  let pastedCount = 0;
+  let hasError = false;
+
   for (const item of Array.from(items)) {
     if (item.type.startsWith('image/')) {
       const file = item.getAsFile();
@@ -248,12 +251,20 @@ async function handlePaste(e: ClipboardEvent): Promise<void> {
           renderPendingPhotos();
         }
         
-        showToast('📋 Image collée !');
+        pastedCount++;
       } catch (err) {
         console.error('Failed to process pasted image:', err);
-        showToast('❌ Erreur lors du collage');
+        hasError = true;
       }
     }
+  }
+
+  // Show toast notification once for all pasted images
+  if (pastedCount > 0) {
+    const message = pastedCount === 1 ? '📋 Image collée !' : `📋 ${pastedCount} images collées !`;
+    showToast(message);
+  } else if (hasError) {
+    showToast('❌ Erreur lors du collage');
   }
 }
 
