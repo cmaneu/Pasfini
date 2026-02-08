@@ -55,7 +55,7 @@ export async function exportZip(issues: Issue[], rooms: Room[], assignees?: Assi
     id: issue.id,
     roomSlug: issue.roomSlug,
     roomName: roomName,
-    assigneeSlug: issue.assigneeSlug || '',
+    assigneeSlug: issue.assigneeSlug ?? '',
     title: issue.title,
     description: issue.description,
     status: issue.status,
