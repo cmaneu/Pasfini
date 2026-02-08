@@ -57,6 +57,9 @@ async function init(): Promise<void> {
   // Photo input (edit form)
   document.getElementById('edit-photo-input')!.addEventListener('change', handleEditPhotoInput);
 
+  // Paste functionality for images
+  document.addEventListener('paste', handlePaste);
+
   // Render initial view
   renderCurrentView();
 }
@@ -207,6 +210,62 @@ async function handlePhotoInput(e: Event): Promise<void> {
 
   input.value = '';
   renderPendingPhotos();
+}
+
+async function handlePaste(e: ClipboardEvent): Promise<void> {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  // Check if we're in add or edit view
+  const isAddView = currentView === 'add';
+  const isEditView = document.getElementById('edit-modal') !== null;
+  
+  if (!isAddView && !isEditView) return;
+
+  // Process pasted images
+  let pastedCount = 0;
+  let hasError = false;
+
+  for (const item of Array.from(items)) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (!file) continue;
+
+      try {
+        const processed = await processPhoto(file);
+        const photo: PendingPhoto = {
+          id: generateId(),
+          blob: processed.blob,
+          thumbnailBlob: processed.thumbnailBlob,
+          width: processed.width,
+          height: processed.height,
+          mimeType: processed.mimeType,
+          objectUrl: URL.createObjectURL(processed.thumbnailBlob),
+        };
+
+        if (isEditView) {
+          editPendingPhotos.push(photo);
+          renderEditPhotos(existingPhotosRef);
+        } else {
+          pendingPhotos.push(photo);
+          renderPendingPhotos();
+        }
+        
+        pastedCount++;
+      } catch (err) {
+        console.error('Failed to process pasted image:', err);
+        hasError = true;
+      }
+    }
+  }
+
+  // Show toast notification once for all pasted images
+  if (pastedCount > 0) {
+    const message = pastedCount === 1 ? '📋 Image collée !' : `📋 ${pastedCount} images collées !`;
+    showToast(message);
+  } else if (hasError) {
+    showToast('❌ Erreur lors du collage');
+  }
 }
 
 async function handleAddSubmit(e: Event): Promise<void> {
