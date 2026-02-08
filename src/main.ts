@@ -1104,7 +1104,7 @@ async function performImport(file: File, mode: ImportMode): Promise<void> {
     issues = await getAllIssues();
     updateIssueCount();
     renderCurrentView();
-    showToast(`📥 Importé : ${result.issueCount} réserve(s), ${result.photoCount} photo(s)`);
+    showToast(`📥 Importé : ${result.issueCount} réserve(s), ${result.photoCount} photo(s), ${result.roomCount} pièce(s), ${result.assigneeCount} intervenant(s)`);
   } catch (err) {
     console.error('Import error:', err);
     showToast('❌ Erreur lors de l\'importation');
