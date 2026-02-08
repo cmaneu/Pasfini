@@ -84,7 +84,7 @@ async function init(): Promise<void> {
       await navigator.serviceWorker.register('/Pasfini/sw.js', { scope: '/Pasfini/' });
       console.log('Service Worker registered successfully');
     } catch (error) {
-      console.log('Service Worker registration failed:', error);
+      console.error('Service Worker registration failed:', error);
     }
   }
 
