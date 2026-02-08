@@ -154,7 +154,7 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `pasfini-reserves-${new Date().toISOString().split('T')[0]}.zip`;
+  link.download = `pasfini-reserves-${exportDate.toISOString().split('T')[0]}.zip`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
