@@ -14,6 +14,7 @@ import {
 } from './db.ts';
 import { generateId, processPhoto } from './photos.ts';
 import { exportPDF } from './pdf.ts';
+import { exportZip } from './zip.ts';
 
 // --- State ---
 let rooms: Room[] = [];
@@ -49,8 +50,9 @@ async function init(): Promise<void> {
     });
   });
 
-  // Export button
-  document.getElementById('btn-export')!.addEventListener('click', handleExport);
+  // Export buttons
+  document.getElementById('btn-export-pdf')!.addEventListener('click', handleExportPDF);
+  document.getElementById('btn-export-zip')!.addEventListener('click', handleExportZip);
 
   // Photo input (add form)
   document.getElementById('photo-input')!.addEventListener('change', handlePhotoInput);
@@ -740,7 +742,7 @@ function cleanupEditPhotos(): void {
 }
 
 // --- Export ---
-async function handleExport(): Promise<void> {
+async function handleExportPDF(): Promise<void> {
   if (issues.length === 0) {
     showToast('Aucune réserve à exporter');
     return;
@@ -751,6 +753,21 @@ async function handleExport(): Promise<void> {
     showToast('📄 PDF exporté !');
   } catch (err) {
     console.error('PDF export error:', err);
+    showToast('❌ Erreur lors de l\'export');
+  }
+}
+
+async function handleExportZip(): Promise<void> {
+  if (issues.length === 0) {
+    showToast('Aucune réserve à exporter');
+    return;
+  }
+  showToast('⏳ Génération du ZIP...');
+  try {
+    await exportZip(issues, rooms);
+    showToast('📦 ZIP exporté !');
+  } catch (err) {
+    console.error('ZIP export error:', err);
     showToast('❌ Erreur lors de l\'export');
   }
 }
