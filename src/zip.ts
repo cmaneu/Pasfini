@@ -12,7 +12,11 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
   if (!imgFolder) throw new Error('Failed to create img folder');
 
   // Track photo filenames to avoid duplicates
-  const photoFilenames = new Map<string, number>();
+  const usedFilenames = new Set<string>();
+
+  // Safe image extensions allowlist
+  const SAFE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+  const DEFAULT_EXTENSION = 'jpg';
 
   // Collect all data for JSON and markdown
   const exportData = {
@@ -25,8 +29,9 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
   };
 
   // Prepare markdown content
+  const exportDate = new Date();
   let markdownContent = `# Réserves chantier — Pasfini\n\n`;
-  markdownContent += `**Exporté le :** ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}\n\n`;
+  markdownContent += `**Exporté le :** ${exportDate.toLocaleDateString('fr-FR')} à ${exportDate.toLocaleTimeString('fr-FR')}\n\n`;
   markdownContent += `**Total :** ${issues.length} réserve(s) — ${exportData.openIssues} ouverte(s), ${exportData.doneIssues} terminée(s)\n\n`;
   markdownContent += `---\n\n`;
 
@@ -76,8 +81,10 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
         markdownContent += `**Description :**\n\n${issue.description}\n\n`;
       }
 
-      markdownContent += `**Créée le :** ${new Date(issue.createdAt).toLocaleDateString('fr-FR')} à ${new Date(issue.createdAt).toLocaleTimeString('fr-FR')}\n\n`;
-      markdownContent += `**Modifiée le :** ${new Date(issue.updatedAt).toLocaleDateString('fr-FR')} à ${new Date(issue.updatedAt).toLocaleTimeString('fr-FR')}\n\n`;
+      const createdDate = new Date(issue.createdAt);
+      const updatedDate = new Date(issue.updatedAt);
+      markdownContent += `**Créée le :** ${createdDate.toLocaleDateString('fr-FR')} à ${createdDate.toLocaleTimeString('fr-FR')}\n\n`;
+      markdownContent += `**Modifiée le :** ${updatedDate.toLocaleDateString('fr-FR')} à ${updatedDate.toLocaleTimeString('fr-FR')}\n\n`;
 
       // Fetch and add photos
       try {
@@ -88,18 +95,27 @@ export async function exportZip(issues: Issue[], rooms: Room[]): Promise<void> {
           for (let i = 0; i < photos.length; i++) {
             const photo = photos[i];
             
-            // Generate unique filename
+            // Safely extract and validate file extension
             const mimeType = photo.mimeType || 'image/jpeg';
-            const extension = mimeType.includes('/') ? mimeType.split('/')[1] : 'jpg';
+            let extension = DEFAULT_EXTENSION;
+            if (mimeType.includes('/')) {
+              const extractedExt = mimeType.split('/')[1].toLowerCase();
+              if (SAFE_EXTENSIONS.includes(extractedExt)) {
+                extension = extractedExt;
+              }
+            }
+            
+            // Generate unique filename
             const baseFilename = `${issue.id}-${i + 1}`;
             let filename = `${baseFilename}.${extension}`;
+            let counter = 1;
             
-            // Handle duplicate filenames
-            const count = photoFilenames.get(filename) || 0;
-            if (count > 0) {
-              filename = `${baseFilename}-${count}.${extension}`;
+            // Ensure filename is unique
+            while (usedFilenames.has(filename)) {
+              filename = `${baseFilename}-${counter}.${extension}`;
+              counter++;
             }
-            photoFilenames.set(filename, count + 1);
+            usedFilenames.add(filename);
 
             // Add photo to zip
             imgFolder.file(filename, photo.blob);
