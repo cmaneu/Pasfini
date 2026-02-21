@@ -10,10 +10,13 @@ export interface Assignee {
   name: string;
 }
 
+export type IssueType = 'reserve' | 'todo';
+
 export interface Issue {
   id: string;
   roomSlug: string;
   assigneeSlug?: string;
+  type?: IssueType; // 'reserve' (default) or 'todo' — optional for backward compatibility
   title: string;
   description: string;
   status: 'open' | 'done';

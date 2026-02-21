@@ -67,6 +67,7 @@ export async function exportZip(issues: Issue[], rooms: Room[], assignees: Assig
     roomSlug: issue.roomSlug,
     roomName: roomName,
     assigneeSlug: issue.assigneeSlug ?? '',
+    type: issue.type || 'reserve',
     title: issue.title,
     description: issue.description,
     status: issue.status,
@@ -86,9 +87,11 @@ export async function exportZip(issues: Issue[], rooms: Room[], assignees: Assig
     for (const issue of roomIssues) {
       const statusIcon = issue.status === 'done' ? '✅' : '⏳';
       const statusText = issue.status === 'done' ? 'Terminée' : 'Ouverte';
+      const typeText = issue.type === 'todo' ? 'To-do' : 'Réserve';
 
       markdownContent += `### ${statusIcon} ${issue.title}\n\n`;
       markdownContent += `**Statut :** ${statusText}\n\n`;
+      markdownContent += `**Type :** ${typeText}\n\n`;
       markdownContent += `**Pièce :** ${roomName}\n\n`;
 
       if (issue.assigneeSlug) {
@@ -359,6 +362,7 @@ export async function importZip(file: File, mode: ImportMode): Promise<{ issueCo
       id: issueData.id,
       roomSlug: issueData.roomSlug,
       assigneeSlug: issueData.assigneeSlug || undefined,
+      type: issueData.type === 'todo' ? 'todo' : 'reserve',
       title: issueData.title,
       description: issueData.description || '',
       status,

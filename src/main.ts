@@ -1,5 +1,5 @@
 // Main application entry point
-import type { Issue, PhotoRef, Room, Assignee } from './types.ts';
+import type { Issue, PhotoRef, Room, Assignee, IssueType } from './types.ts';
 import {
   getRooms,
   getLastRoomSlug,
@@ -151,6 +151,14 @@ function renderAddView(): void {
         <select class="form-select" id="add-assignee">
           <option value="">— Non assigné —</option>
           ${assignees.map((a) => `<option value="${escapeHtml(a.slug)}">${escapeHtml(a.name)}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="add-type">Type</label>
+        <select class="form-select" id="add-type">
+          <option value="reserve" selected>Réserve</option>
+          <option value="todo">To-do</option>
         </select>
       </div>
 
@@ -315,6 +323,7 @@ async function handleAddSubmit(e: Event): Promise<void> {
   e.preventDefault();
   const roomSlug = (document.getElementById('add-room') as HTMLSelectElement).value;
   const assigneeSlug = (document.getElementById('add-assignee') as HTMLSelectElement).value || undefined;
+  const issueType = (document.getElementById('add-type') as HTMLSelectElement).value as IssueType;
   const title = (document.getElementById('add-title') as HTMLInputElement).value.trim();
   const description = (document.getElementById('add-desc') as HTMLTextAreaElement).value.trim();
 
@@ -345,6 +354,7 @@ async function handleAddSubmit(e: Event): Promise<void> {
     id: issueId,
     roomSlug,
     assigneeSlug,
+    type: issueType,
     title,
     description,
     status: 'open',
@@ -487,6 +497,9 @@ function renderListView(): void {
         const badge = issue.status === 'done'
           ? '<span class="badge badge-done">Terminé</span>'
           : '<span class="badge badge-open">Ouvert</span>';
+        const typeBadge = issue.type === 'todo'
+          ? '<span class="badge" style="background: var(--blue-100); color: var(--blue-700);">To-do</span>'
+          : '<span class="badge" style="background: var(--yellow-100); color: #92400e;">Réserve</span>';
         const photoIcon = issue.photos.length > 0 ? `📷 ${issue.photos.length}` : '';
         const assigneeName = issue.assigneeSlug ? assigneeMap.get(issue.assigneeSlug) || issue.assigneeSlug : '';
         html += `
@@ -494,7 +507,7 @@ function renderListView(): void {
             <div class="issue-info">
               <div class="flex-between">
                 <div class="issue-title">${escapeHtml(issue.title)}</div>
-                ${badge}
+                <div style="display: flex; gap: 0.25rem;">${typeBadge} ${badge}</div>
               </div>
               ${issue.description ? `<div class="issue-desc">${escapeHtml(issue.description)}</div>` : ''}
               <div class="issue-meta">
@@ -597,6 +610,8 @@ async function showIssueDetail(id: string): Promise<void> {
     }
   }
 
+  const typeLabel = issue.type === 'todo' ? 'To-do' : 'Réserve';
+
   overlay.innerHTML = `
     <div class="modal-content">
       <div class="modal-title">
@@ -605,6 +620,7 @@ async function showIssueDetail(id: string): Promise<void> {
       </div>
       <div style="margin-bottom: 0.75rem;">
         <span class="badge ${issue.status === 'done' ? 'badge-done' : 'badge-open'}">${issue.status === 'done' ? 'Terminé' : 'Ouvert'}</span>
+        <span class="badge" style="margin-left: 0.25rem; background: ${issue.type === 'todo' ? 'var(--blue-100)' : 'var(--yellow-100)'}; color: ${issue.type === 'todo' ? 'var(--blue-700)' : '#92400e'};">${typeLabel}</span>
         <span style="margin-left: 0.5rem; font-size: 0.8125rem; color: var(--gray-500);">${escapeHtml(roomName)}</span>
         ${assigneeName ? `<span style="margin-left: 0.5rem; font-size: 0.8125rem; color: var(--gray-500);">· 👤 ${escapeHtml(assigneeName)}</span>` : ''}
       </div>
@@ -716,6 +732,13 @@ async function showEditModal(issue: Issue): Promise<void> {
           <select class="form-select" id="edit-assignee">
             <option value="">— Non assigné —</option>
             ${assignees.map((a) => `<option value="${escapeHtml(a.slug)}" ${issue.assigneeSlug === a.slug ? 'selected' : ''}>${escapeHtml(a.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-type">Type</label>
+          <select class="form-select" id="edit-type">
+            <option value="reserve" ${issue.type !== 'todo' ? 'selected' : ''}>Réserve</option>
+            <option value="todo" ${issue.type === 'todo' ? 'selected' : ''}>To-do</option>
           </select>
         </div>
         <div class="form-group">
@@ -862,6 +885,7 @@ async function handleEditSubmit(e: Event): Promise<void> {
 
   const roomSlug = (document.getElementById('edit-room') as HTMLSelectElement).value;
   const assigneeSlug = (document.getElementById('edit-assignee') as HTMLSelectElement).value || undefined;
+  const issueType = (document.getElementById('edit-type') as HTMLSelectElement).value as IssueType;
   const title = (document.getElementById('edit-title') as HTMLInputElement).value.trim();
   const description = (document.getElementById('edit-desc') as HTMLTextAreaElement).value.trim();
 
@@ -892,6 +916,7 @@ async function handleEditSubmit(e: Event): Promise<void> {
 
   editIssueRef.roomSlug = roomSlug;
   editIssueRef.assigneeSlug = assigneeSlug;
+  editIssueRef.type = issueType;
   editIssueRef.title = title;
   editIssueRef.description = description;
   editIssueRef.photos = editExistingPhotoIds;
