@@ -132,6 +132,12 @@ function escapeHtml(str: string): string {
   return div.innerHTML;
 }
 
+function typeBadgeHtml(type: IssueType | undefined): string {
+  return type === 'todo'
+    ? '<span class="badge" style="background: var(--blue-100); color: var(--blue-700);">To-do</span>'
+    : '<span class="badge" style="background: var(--yellow-100); color: #92400e;">Réserve</span>';
+}
+
 // --- Add View ---
 function renderAddView(): void {
   const lastSlug = getLastRoomSlug();
@@ -497,9 +503,7 @@ function renderListView(): void {
         const badge = issue.status === 'done'
           ? '<span class="badge badge-done">Terminé</span>'
           : '<span class="badge badge-open">Ouvert</span>';
-        const typeBadge = issue.type === 'todo'
-          ? '<span class="badge" style="background: var(--blue-100); color: var(--blue-700);">To-do</span>'
-          : '<span class="badge" style="background: var(--yellow-100); color: #92400e;">Réserve</span>';
+        const typeBadge = typeBadgeHtml(issue.type);
         const photoIcon = issue.photos.length > 0 ? `📷 ${issue.photos.length}` : '';
         const assigneeName = issue.assigneeSlug ? assigneeMap.get(issue.assigneeSlug) || issue.assigneeSlug : '';
         html += `
@@ -610,8 +614,6 @@ async function showIssueDetail(id: string): Promise<void> {
     }
   }
 
-  const typeLabel = issue.type === 'todo' ? 'To-do' : 'Réserve';
-
   overlay.innerHTML = `
     <div class="modal-content">
       <div class="modal-title">
@@ -620,7 +622,7 @@ async function showIssueDetail(id: string): Promise<void> {
       </div>
       <div style="margin-bottom: 0.75rem;">
         <span class="badge ${issue.status === 'done' ? 'badge-done' : 'badge-open'}">${issue.status === 'done' ? 'Terminé' : 'Ouvert'}</span>
-        <span class="badge" style="margin-left: 0.25rem; background: ${issue.type === 'todo' ? 'var(--blue-100)' : 'var(--yellow-100)'}; color: ${issue.type === 'todo' ? 'var(--blue-700)' : '#92400e'};">${typeLabel}</span>
+        <span style="margin-left: 0.25rem;">${typeBadgeHtml(issue.type)}</span>
         <span style="margin-left: 0.5rem; font-size: 0.8125rem; color: var(--gray-500);">${escapeHtml(roomName)}</span>
         ${assigneeName ? `<span style="margin-left: 0.5rem; font-size: 0.8125rem; color: var(--gray-500);">· 👤 ${escapeHtml(assigneeName)}</span>` : ''}
       </div>
