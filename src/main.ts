@@ -384,22 +384,19 @@ async function handleAddSubmit(e: Event): Promise<void> {
   }, 100);
 }
 
-// --- List View ---
-function renderListView(): void {
-  // Apply status, room, and assignee filters
+// --- Filtering ---
+function hasActiveFilters(): boolean {
+  return statusFilter !== 'all' || roomFilter !== 'all' || assigneeFilter !== 'all';
+}
+
+function getFilteredIssues(): Issue[] {
   let filtered = issues;
-  
-  // Filter by status
   if (statusFilter !== 'all') {
     filtered = filtered.filter((i) => i.status === statusFilter);
   }
-  
-  // Filter by room
   if (roomFilter !== 'all') {
     filtered = filtered.filter((i) => i.roomSlug === roomFilter);
   }
-
-  // Filter by assignee
   if (assigneeFilter !== 'all') {
     if (assigneeFilter === '') {
       filtered = filtered.filter((i) => !i.assigneeSlug);
@@ -407,6 +404,13 @@ function renderListView(): void {
       filtered = filtered.filter((i) => i.assigneeSlug === assigneeFilter);
     }
   }
+  return filtered;
+}
+
+// --- List View ---
+function renderListView(): void {
+  // Apply status, room, and assignee filters
+  const filtered = getFilteredIssues();
 
   // Calculate counts in a single pass
   let openCount = 0;
@@ -1039,19 +1043,74 @@ function showManageAssigneesModal(): void {
 }
 
 // --- Export ---
-async function handleExportPDF(): Promise<void> {
-  if (issues.length === 0) {
-    showToast('Aucune réserve à exporter');
-    return;
-  }
+async function performPDFExport(issuesToExport: Issue[]): Promise<void> {
   showToast('⏳ Génération du PDF...');
   try {
-    await exportPDF(issues, rooms, assignees);
+    await exportPDF(issuesToExport, rooms, assignees);
     showToast('📄 PDF exporté !');
   } catch (err) {
     console.error('PDF export error:', err);
     showToast('❌ Erreur lors de l\'export');
   }
+}
+
+async function handleExportPDF(): Promise<void> {
+  if (issues.length === 0) {
+    showToast('Aucune réserve à exporter');
+    return;
+  }
+
+  if (!hasActiveFilters()) {
+    await performPDFExport(issues);
+    return;
+  }
+
+  const filtered = getFilteredIssues();
+  if (filtered.length === 0) {
+    showToast('Aucune réserve correspondant aux filtres');
+    return;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'pdf-export-modal';
+
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-title">
+        <span>📄 Exporter en PDF</span>
+        <button class="btn btn-sm btn-secondary" id="pdf-export-close">✕</button>
+      </div>
+      <p style="font-size: 0.9375rem; color: var(--gray-700); margin-bottom: 0.5rem;">
+        Des filtres sont actifs. Que souhaitez-vous exporter ?
+      </p>
+      <div class="import-modal-actions">
+        <button class="btn btn-primary" id="pdf-export-filtered">📋 Exporter la sélection filtrée (${filtered.length} réserve(s))</button>
+        <button class="btn btn-secondary" id="pdf-export-all">📄 Exporter tout (${issues.length} réserve(s))</button>
+        <button class="btn btn-secondary" id="pdf-export-cancel">Annuler</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const closeModal = () => overlay.remove();
+
+  overlay.querySelector('#pdf-export-close')!.addEventListener('click', closeModal);
+  overlay.querySelector('#pdf-export-cancel')!.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (ev) => {
+    if (ev.target === overlay) closeModal();
+  });
+
+  overlay.querySelector('#pdf-export-filtered')!.addEventListener('click', async () => {
+    closeModal();
+    await performPDFExport(filtered);
+  });
+
+  overlay.querySelector('#pdf-export-all')!.addEventListener('click', async () => {
+    closeModal();
+    await performPDFExport(issues);
+  });
 }
 
 async function handleExportZip(): Promise<void> {
