@@ -17,7 +17,7 @@ function addPageNumbers(doc: jsPDF): void {
   }
 }
 
-export async function exportPDF(issues: Issue[], rooms: Room[], assignees?: Assignee[]): Promise<void> {
+export async function exportPDF(issues: Issue[], rooms: Room[], assignees?: Assignee[], filename?: string): Promise<void> {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 15;
@@ -174,5 +174,5 @@ export async function exportPDF(issues: Issue[], rooms: Room[], assignees?: Assi
   }
 
   addPageNumbers(doc);
-  doc.save('reserves.pdf');
+  doc.save(filename || 'reserves.pdf');
 }

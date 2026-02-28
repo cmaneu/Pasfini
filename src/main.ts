@@ -1043,10 +1043,23 @@ function showManageAssigneesModal(): void {
 }
 
 // --- Export ---
-async function performPDFExport(issuesToExport: Issue[]): Promise<void> {
+function buildPDFFilename(): string {
+  const parts = ['reserves'];
+  if (roomFilter !== 'all') {
+    const room = rooms.find((r) => r.slug === roomFilter);
+    if (room) parts.push(room.name);
+  }
+  if (assigneeFilter !== 'all' && assigneeFilter !== '') {
+    const assignee = assignees.find((a) => a.slug === assigneeFilter);
+    if (assignee) parts.push(assignee.name);
+  }
+  return parts.join(' - ') + '.pdf';
+}
+
+async function performPDFExport(issuesToExport: Issue[], filename: string): Promise<void> {
   showToast('⏳ Génération du PDF...');
   try {
-    await exportPDF(issuesToExport, rooms, assignees);
+    await exportPDF(issuesToExport, rooms, assignees, filename);
     showToast('📄 PDF exporté !');
   } catch (err) {
     console.error('PDF export error:', err);
@@ -1061,7 +1074,7 @@ async function handleExportPDF(): Promise<void> {
   }
 
   if (!hasActiveFilters()) {
-    await performPDFExport(issues);
+    await performPDFExport(issues, 'reserves.pdf');
     return;
   }
 
@@ -1104,12 +1117,12 @@ async function handleExportPDF(): Promise<void> {
 
   overlay.querySelector('#pdf-export-filtered')!.addEventListener('click', async () => {
     closeModal();
-    await performPDFExport(filtered);
+    await performPDFExport(filtered, buildPDFFilename());
   });
 
   overlay.querySelector('#pdf-export-all')!.addEventListener('click', async () => {
     closeModal();
-    await performPDFExport(issues);
+    await performPDFExport(issues, 'reserves.pdf');
   });
 }
 
