@@ -52,7 +52,8 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         })
-        .catch(() => {
+        .catch((err) => {
+          console.warn('Network request failed, falling back to cache:', err);
           return caches.match(request);
         })
     );
