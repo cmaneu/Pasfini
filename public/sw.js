@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pasfini-v1';
+const CACHE_NAME = 'pasfini-v2';
 const urlsToCache = [
   '/Pasfini/',
   '/Pasfini/index.html',
@@ -31,29 +31,51 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - network-first for navigation, cache-first for assets
 self.addEventListener('fetch', (event) => {
+  const request = event.request;
+
+  // Navigation requests (HTML pages): network-first to always get latest version
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME)
+              .then((cache) => {
+                cache.put(request, responseToCache);
+              })
+              .catch((err) => {
+                console.error('Caching failed:', err);
+              });
+          }
+          return response;
+        })
+        .catch(() => {
+          return caches.match(request);
+        })
+    );
+    return;
+  }
+
+  // All other requests (JS, CSS, images): cache-first with network fallback
   event.respondWith(
-    caches.match(event.request)
+    caches.match(request)
       .then((response) => {
-        // Cache hit - return response
         if (response) {
           return response;
         }
 
-        return fetch(event.request).then((response) => {
-          // Check if valid response
+        return fetch(request).then((response) => {
           if (!response || !response.ok) {
             return response;
           }
 
-          // Clone the response
           const responseToCache = response.clone();
-
-          // Cache the response asynchronously (don't block the return)
           caches.open(CACHE_NAME)
             .then((cache) => {
-              cache.put(event.request, responseToCache);
+              cache.put(request, responseToCache);
             })
             .catch((err) => {
               console.error('Caching failed:', err);
