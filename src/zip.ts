@@ -64,6 +64,7 @@ export async function exportZip(issues: Issue[], rooms: Room[], assignees: Assig
   // Helper function to create issue export data
   const createIssueExportData = (issue: Issue, roomName: string, photoDetails: { path: string; id: string; mimeType: string; width: number; height: number; thumbnailPath: string; createdAt: string }[]) => ({
     id: issue.id,
+    code: issue.code ?? '',
     roomSlug: issue.roomSlug,
     roomName: roomName,
     assigneeSlug: issue.assigneeSlug ?? '',
@@ -89,7 +90,8 @@ export async function exportZip(issues: Issue[], rooms: Room[], assignees: Assig
       const statusText = issue.status === 'done' ? 'Terminée' : 'Ouverte';
       const typeText = issue.type === 'todo' ? 'To-do' : 'Réserve';
 
-      markdownContent += `### ${statusIcon} ${issue.title}\n\n`;
+      const codeLabel = issue.code ? `${issue.code} — ` : '';
+      markdownContent += `### ${statusIcon} ${codeLabel}${issue.title}\n\n`;
       markdownContent += `**Statut :** ${statusText}\n\n`;
       markdownContent += `**Type :** ${typeText}\n\n`;
       markdownContent += `**Pièce :** ${roomName}\n\n`;
@@ -360,6 +362,7 @@ export async function importZip(file: File, mode: ImportMode): Promise<{ issueCo
 
     const issue: Issue = {
       id: issueData.id,
+      code: issueData.code || undefined,
       roomSlug: issueData.roomSlug,
       assigneeSlug: issueData.assigneeSlug || undefined,
       type: issueData.type === 'todo' ? 'todo' : 'reserve',

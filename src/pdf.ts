@@ -102,7 +102,8 @@ export async function exportPDF(issues: Issue[], rooms: Room[], assignees?: Assi
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
       const typeLabel = issue.type === 'todo' ? '[To-do]' : '[Réserve]';
-      doc.text(`${typeLabel} ${issue.title}`, margin + 10, y + 1);
+      const codeLabel = issue.code ? `${issue.code} — ` : '';
+      doc.text(`${typeLabel} ${codeLabel}${issue.title}`, margin + 10, y + 1);
       y += 5;
 
       // Assignee
