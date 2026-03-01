@@ -3,6 +3,7 @@
 export interface Room {
   slug: string;
   name: string;
+  letter?: string;
 }
 
 export interface Assignee {
@@ -37,22 +38,22 @@ export interface PhotoRef {
 }
 
 export const DEFAULT_ROOMS: Room[] = [
-  { slug: 'entree', name: 'Entrée' },
-  { slug: 'salle-de-bain-jaune', name: 'Salle de bain Jaune' },
-  { slug: 'wc-etage', name: 'WC Etage' },
-  { slug: 'couloir', name: 'Couloir' },
-  { slug: 'suite-parentale', name: 'Suite parentale' },
-  { slug: 'dressing-suite-parentale', name: 'Dressing suite parentale' },
-  { slug: 'salle-deau-suite-parentale', name: 'Salle d\'eau suite parentale' },
-  { slug: 'combles', name: 'Combles' },
-  { slug: 'salle-deau-combles', name: 'Salle d\'eau combles' },
-  { slug: 'salon', name: 'Salon' },
-  { slug: 'salle-a-manger', name: 'Salle à manger' },
-  { slug: 'cuisine', name: 'Cuisine' },
-  { slug: 'buanderie', name: 'Buanderie' },
-  { slug: 'garage', name: 'Garage' },
-  { slug: 'exterieur', name: 'Extérieur' },
-  { slug: 'wc-rdc', name: 'WC RDC' },
+  { slug: 'entree', name: 'Entrée', letter: 'Z' },
+  { slug: 'salle-de-bain-jaune', name: 'Salle de bain Jaune', letter: 'Y' },
+  { slug: 'wc-etage', name: 'WC Etage', letter: 'X' },
+  { slug: 'couloir', name: 'Couloir', letter: 'W' },
+  { slug: 'suite-parentale', name: 'Suite parentale', letter: 'V' },
+  { slug: 'dressing-suite-parentale', name: 'Dressing suite parentale', letter: 'U' },
+  { slug: 'salle-deau-suite-parentale', name: 'Salle d\'eau suite parentale', letter: 'T' },
+  { slug: 'combles', name: 'Combles', letter: 'S' },
+  { slug: 'salle-deau-combles', name: 'Salle d\'eau combles', letter: 'R' },
+  { slug: 'salon', name: 'Salon', letter: 'Q' },
+  { slug: 'salle-a-manger', name: 'Salle à manger', letter: 'P' },
+  { slug: 'cuisine', name: 'Cuisine', letter: 'O' },
+  { slug: 'buanderie', name: 'Buanderie', letter: 'N' },
+  { slug: 'garage', name: 'Garage', letter: 'M' },
+  { slug: 'exterieur', name: 'Extérieur', letter: 'L' },
+  { slug: 'wc-rdc', name: 'WC RDC', letter: 'K' },
 ];
 
 export const DEFAULT_ASSIGNEES: Assignee[] = [];

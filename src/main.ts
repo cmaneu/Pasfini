@@ -995,12 +995,34 @@ function showManageRoomsModal(): void {
   overlay.className = 'modal-overlay';
   overlay.id = 'rooms-modal';
 
+  const ALL_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+  function getUsedLetters(excludeSlug?: string): Set<string> {
+    const used = new Set<string>();
+    for (const r of rooms) {
+      if (r.letter && r.slug !== excludeSlug) used.add(r.letter);
+    }
+    return used;
+  }
+
+  function letterOptions(currentLetter?: string, excludeSlug?: string): string {
+    const used = getUsedLetters(excludeSlug);
+    let html = '<option value="">— Aucune —</option>';
+    for (const letter of ALL_LETTERS) {
+      if (!used.has(letter) || letter === currentLetter) {
+        html += `<option value="${letter}" ${letter === currentLetter ? 'selected' : ''}>${letter}</option>`;
+      }
+    }
+    return html;
+  }
+
   function renderRoomList(): string {
     if (rooms.length === 0) {
       return '<p style="color: var(--gray-500); font-size: 0.875rem; text-align: center; margin: 1rem 0;">Aucune pièce configurée</p>';
     }
     return rooms.map((r) => `
       <div class="room-row" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--gray-100);">
+        <span style="font-weight: 700; font-size: 0.875rem; color: var(--blue-700); min-width: 1.5rem; text-align: center;">${r.letter ? escapeHtml(r.letter) : '–'}</span>
         <span class="room-name-display" data-slug="${escapeHtml(r.slug)}" style="flex: 1; font-size: 0.9375rem; cursor: pointer;" title="Cliquer pour modifier">${escapeHtml(r.name)}</span>
         <button class="btn btn-sm btn-secondary room-edit" data-slug="${escapeHtml(r.slug)}" title="Modifier">✏️</button>
         <button class="btn btn-sm btn-danger room-delete" data-slug="${escapeHtml(r.slug)}" title="Supprimer">🗑️</button>
@@ -1017,8 +1039,9 @@ function showManageRoomsModal(): void {
       <div id="room-list">
         ${renderRoomList()}
       </div>
-      <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+      <div style="margin-top: 1rem; display: flex; gap: 0.5rem; align-items: flex-end;">
         <input class="form-input" id="new-room-name" type="text" placeholder="Nom de la nouvelle pièce" maxlength="100" style="flex: 1;" />
+        <select class="form-select" id="new-room-letter" style="width: 5rem; padding: 0.625rem 0.5rem;">${letterOptions()}</select>
         <button class="btn btn-primary" id="add-room-btn">➕</button>
       </div>
     </div>
@@ -1029,6 +1052,9 @@ function showManageRoomsModal(): void {
   function refreshList(): void {
     const listEl = document.getElementById('room-list');
     if (listEl) listEl.innerHTML = renderRoomList();
+    // Refresh the letter dropdown for adding new rooms
+    const letterSelect = document.getElementById('new-room-letter') as HTMLSelectElement;
+    if (letterSelect) letterSelect.innerHTML = letterOptions();
     bindRoomButtons();
   }
 
@@ -1055,7 +1081,16 @@ function showManageRoomsModal(): void {
 
         const row = btn.closest('.room-row')!;
         const nameSpan = row.querySelector('.room-name-display') as HTMLElement;
+        const letterSpan = row.children[0] as HTMLElement;
         const currentName = room.name;
+        const currentLetter = room.letter;
+
+        // Replace letter badge with a select
+        const letterSelect = document.createElement('select');
+        letterSelect.className = 'form-select';
+        letterSelect.style.cssText = 'width: 4rem; padding: 0.25rem 0.375rem; font-size: 0.875rem; min-width: 3.5rem;';
+        letterSelect.innerHTML = letterOptions(currentLetter, slug);
+        letterSpan.replaceWith(letterSelect);
 
         // Replace name with an inline edit input
         const input = document.createElement('input');
@@ -1071,11 +1106,13 @@ function showManageRoomsModal(): void {
 
         const confirmEdit = () => {
           const newName = input.value.trim();
-          if (!newName || newName === currentName) {
+          const newLetter = letterSelect.value || undefined;
+          if (!newName || (newName === currentName && newLetter === currentLetter)) {
             refreshList();
             return;
           }
           room.name = newName;
+          room.letter = newLetter;
           rooms.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
           saveRooms(rooms);
           refreshList();
@@ -1110,6 +1147,7 @@ function showManageRoomsModal(): void {
   // Add room
   overlay.querySelector('#add-room-btn')!.addEventListener('click', () => {
     const input = document.getElementById('new-room-name') as HTMLInputElement;
+    const letterSelect = document.getElementById('new-room-letter') as HTMLSelectElement;
     const name = input.value.trim();
     if (!name) return;
     const slug = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -1118,7 +1156,8 @@ function showManageRoomsModal(): void {
       showToast('⚠️ Cette pièce existe déjà');
       return;
     }
-    rooms.push({ slug, name });
+    const letter = letterSelect.value || undefined;
+    rooms.push({ slug, name, letter });
     rooms.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
     saveRooms(rooms);
     input.value = '';
