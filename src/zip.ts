@@ -3,7 +3,7 @@ import JSZip from 'jszip';
 import type { Issue, PhotoRef, Room, Assignee } from './types.ts';
 import { getPhotosByIssue, saveIssue, savePhoto, clearAllData } from './db.ts';
 
-export async function exportZip(issues: Issue[], rooms: Room[], assignees: Assignee[]): Promise<void> {
+export async function generateZipBlob(issues: Issue[], rooms: Room[], assignees: Assignee[]): Promise<{ blob: Blob; date: Date }> {
   const zip = new JSZip();
   const roomMap = new Map(rooms.map((r) => [r.slug, r.name]));
   const assigneeMap = new Map(assignees.map((a) => [a.slug, a.name]));
@@ -190,16 +190,33 @@ export async function exportZip(issues: Issue[], rooms: Room[], assignees: Assig
   // Add JSON file to zip
   zip.file('report.json', JSON.stringify(exportData, null, 2));
 
-  // Generate and download zip file
+  // Generate zip blob
   const blob = await zip.generateAsync({ type: 'blob' });
+  return { blob, date: exportDate };
+}
+
+export async function exportZip(issues: Issue[], rooms: Room[], assignees: Assignee[]): Promise<void> {
+  const { blob, date } = await generateZipBlob(issues, rooms, assignees);
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `pasfini-reserves-${exportDate.toISOString().split('T')[0]}.zip`;
+  link.download = `pasfini-reserves-${date.toISOString().split('T')[0]}.zip`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+export async function shareZip(issues: Issue[], rooms: Room[], assignees: Assignee[]): Promise<void> {
+  const { blob, date } = await generateZipBlob(issues, rooms, assignees);
+  const filename = `pasfini-reserves-${date.toISOString().split('T')[0]}.zip`;
+  const file = new File([blob], filename, { type: 'application/zip' });
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    await navigator.share({ files: [file], title: 'Pasfini — Réserves chantier' });
+  } else {
+    throw new Error('Le partage de fichiers n\'est pas supporté sur ce navigateur');
+  }
 }
 
 // --- Import ZIP ---
