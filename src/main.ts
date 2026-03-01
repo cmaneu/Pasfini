@@ -17,7 +17,7 @@ import {
 } from './db.ts';
 import { generateId, processPhoto } from './photos.ts';
 import { exportPDF } from './pdf.ts';
-import { exportZip, importZip } from './zip.ts';
+import { exportZip, importZip, shareZip } from './zip.ts';
 import type { ImportMode } from './zip.ts';
 
 // --- State ---
@@ -989,6 +989,10 @@ function showSettingsModal(): void {
       <div style="display: flex; flex-direction: column; gap: 0.75rem;">
         <button class="btn btn-secondary" id="settings-rooms" style="width: 100%; justify-content: flex-start; padding: 0.75rem 1rem; font-size: 0.9375rem;">🏠 Gérer les pièces</button>
         <button class="btn btn-secondary" id="settings-assignees" style="width: 100%; justify-content: flex-start; padding: 0.75rem 1rem; font-size: 0.9375rem;">👥 Gérer les assignés</button>
+        <hr style="border: none; border-top: 1px solid var(--gray-200); margin: 0.25rem 0;" aria-hidden="true">
+        <button class="btn btn-secondary" id="settings-export-zip" style="width: 100%; justify-content: flex-start; padding: 0.75rem 1rem; font-size: 0.9375rem;">📦 Exporter ZIP</button>
+        <button class="btn btn-secondary" id="settings-import-zip" style="width: 100%; justify-content: flex-start; padding: 0.75rem 1rem; font-size: 0.9375rem;">📥 Importer ZIP</button>
+        <button class="btn btn-secondary" id="settings-share" style="width: 100%; justify-content: flex-start; padding: 0.75rem 1rem; font-size: 0.9375rem;">🔗 Partager les données</button>
       </div>
     </div>
   `;
@@ -1012,6 +1016,21 @@ function showSettingsModal(): void {
   overlay.querySelector('#settings-assignees')!.addEventListener('click', () => {
     closeModal();
     showManageAssigneesModal();
+  });
+
+  overlay.querySelector('#settings-export-zip')!.addEventListener('click', () => {
+    closeModal();
+    handleExportZip();
+  });
+
+  overlay.querySelector('#settings-import-zip')!.addEventListener('click', () => {
+    closeModal();
+    handleImportZipClick();
+  });
+
+  overlay.querySelector('#settings-share')!.addEventListener('click', () => {
+    closeModal();
+    handleShareZip();
   });
 }
 
@@ -1393,6 +1412,22 @@ async function handleExportZip(): Promise<void> {
   } catch (err) {
     console.error('ZIP export error:', err);
     showToast('❌ Erreur lors de l\'export');
+  }
+}
+
+async function handleShareZip(): Promise<void> {
+  if (issues.length === 0) {
+    showToast('Aucune réserve à partager');
+    return;
+  }
+  showToast('⏳ Préparation du partage...');
+  try {
+    await shareZip(issues, rooms, assignees);
+    showToast('🔗 Données partagées !');
+  } catch (err: any) {
+    if (err?.name === 'AbortError') return;
+    console.error('Share error:', err);
+    showToast('❌ ' + (err?.message || 'Erreur lors du partage'));
   }
 }
 
