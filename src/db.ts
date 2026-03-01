@@ -74,6 +74,10 @@ export function getAssignees(): Assignee[] {
   }
 }
 
+export function saveRooms(rooms: Room[]): void {
+  localStorage.setItem('rooms', JSON.stringify(rooms));
+}
+
 export function saveAssignees(assignees: Assignee[]): void {
   localStorage.setItem('assignees', JSON.stringify(assignees));
 }
