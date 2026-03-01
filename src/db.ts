@@ -52,7 +52,7 @@ export function getRooms(): Room[] {
       }
       localStorage.setItem('rooms', JSON.stringify(rooms));
     }
-    return rooms.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+    return rooms.sort((a, b) => (a.letter || '\uffff').localeCompare(b.letter || '\uffff'));
   } catch {
     localStorage.setItem('rooms', JSON.stringify(DEFAULT_ROOMS));
     return [...DEFAULT_ROOMS];

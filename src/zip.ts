@@ -56,9 +56,10 @@ export async function generateZipBlob(issues: Issue[], rooms: Room[], assignees:
     grouped.set(issue.roomSlug, list);
   }
 
-  // Sort rooms by name
+  // Sort rooms by letter
+  const roomLetterMap = new Map(rooms.map((r) => [r.slug, r.letter || '\uffff']));
   const sortedSlugs = [...grouped.keys()].sort((a, b) =>
-    (roomMap.get(a) || a).localeCompare(roomMap.get(b) || b, 'fr')
+    (roomLetterMap.get(a) || '\uffff').localeCompare(roomLetterMap.get(b) || '\uffff')
   );
 
   // Helper function to create issue export data
