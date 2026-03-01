@@ -1100,6 +1100,23 @@ function showManageRoomsModal(): void {
         input.maxLength = 100;
         input.style.cssText = 'flex: 1; padding: 0.25rem 0.5rem; font-size: 0.9375rem;';
 
+        // Replace edit/delete buttons with confirm/cancel buttons
+        const editBtn = row.querySelector('.room-edit') as HTMLElement | null;
+        const deleteBtn = row.querySelector('.room-delete') as HTMLElement | null;
+        if (!editBtn || !deleteBtn) return;
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = 'btn btn-sm btn-primary';
+        confirmBtn.title = 'Valider';
+        confirmBtn.textContent = '✓';
+        editBtn.replaceWith(confirmBtn);
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn btn-sm btn-secondary';
+        cancelBtn.title = 'Annuler';
+        cancelBtn.textContent = '✗';
+        deleteBtn.replaceWith(cancelBtn);
+
         nameSpan.replaceWith(input);
         input.focus();
         input.select();
@@ -1119,11 +1136,12 @@ function showManageRoomsModal(): void {
           showToast('✅ Pièce modifiée');
         };
 
-        input.addEventListener('blur', confirmEdit);
+        confirmBtn.addEventListener('click', confirmEdit);
+        cancelBtn.addEventListener('click', () => refreshList());
         input.addEventListener('keydown', (e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
-            input.blur();
+            confirmEdit();
           } else if (e.key === 'Escape') {
             refreshList();
           }
