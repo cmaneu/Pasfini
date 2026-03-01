@@ -41,7 +41,17 @@ export function getRooms(): Room[] {
     return [...DEFAULT_ROOMS];
   }
   try {
-    const rooms = JSON.parse(stored) as Room[];
+    let rooms = JSON.parse(stored) as Room[];
+    // Backward compatibility: assign letters if the first room has none
+    if (rooms.length > 0 && !rooms[0].letter) {
+      const charCodeZ = 'Z'.charCodeAt(0);
+      const charCodeA = 'A'.charCodeAt(0);
+      for (let i = 0; i < rooms.length; i++) {
+        const code = charCodeZ - i;
+        rooms[i].letter = code >= charCodeA ? String.fromCharCode(code) : undefined;
+      }
+      localStorage.setItem('rooms', JSON.stringify(rooms));
+    }
     return rooms.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
   } catch {
     localStorage.setItem('rooms', JSON.stringify(DEFAULT_ROOMS));
