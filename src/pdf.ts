@@ -51,8 +51,9 @@ export async function exportPDF(issues: Issue[], rooms: Room[], assignees?: Assi
     grouped.set(issue.roomSlug, list);
   }
 
+  const roomLetterMap = new Map(rooms.map((r) => [r.slug, r.letter || '\uffff']));
   const sortedSlugs = [...grouped.keys()].sort((a, b) =>
-    (roomMap.get(a) || a).localeCompare(roomMap.get(b) || b, 'fr')
+    (roomLetterMap.get(a) || '\uffff').localeCompare(roomLetterMap.get(b) || '\uffff')
   );
 
   for (const slug of sortedSlugs) {

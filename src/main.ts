@@ -511,8 +511,9 @@ function renderListView(): void {
     }
 
     const roomMap = new Map(rooms.map((r) => [r.slug, r.name]));
+    const roomLetterMap = new Map(rooms.map((r) => [r.slug, r.letter || '\uffff']));
     const sortedSlugs = [...grouped.keys()].sort((a, b) =>
-      (roomMap.get(a) || a).localeCompare(roomMap.get(b) || b, 'fr')
+      (roomLetterMap.get(a) || '\uffff').localeCompare(roomLetterMap.get(b) || '\uffff')
     );
 
     for (const slug of sortedSlugs) {
@@ -1175,7 +1176,7 @@ function showManageRoomsModal(): void {
           }
           room.name = newName;
           room.letter = newLetter;
-          rooms.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+          rooms.sort((a, b) => (a.letter || '\uffff').localeCompare(b.letter || '\uffff'));
           saveRooms(rooms);
           refreshList();
           showToast('✅ Pièce modifiée');
@@ -1221,7 +1222,7 @@ function showManageRoomsModal(): void {
     }
     const letter = letterSelect.value || undefined;
     rooms.push({ slug, name, letter });
-    rooms.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+    rooms.sort((a, b) => (a.letter || '\uffff').localeCompare(b.letter || '\uffff'));
     saveRooms(rooms);
     input.value = '';
     refreshList();
