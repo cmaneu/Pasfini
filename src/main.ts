@@ -945,6 +945,7 @@ async function handleEditSubmit(e: Event): Promise<void> {
   const roomChanged = editIssueRef.roomSlug !== roomSlug;
   editIssueRef.roomSlug = roomSlug;
   if (roomChanged || !editIssueRef.code) {
+    editIssueRef.code = undefined; // clear old code before computing to avoid counting it
     editIssueRef.code = computeIssueCode(roomSlug);
   }
   editIssueRef.assigneeSlug = assigneeSlug;
