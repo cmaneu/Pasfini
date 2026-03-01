@@ -43,6 +43,23 @@ let pendingPhotos: PendingPhoto[] = [];
 
 const app = document.getElementById('app')!;
 
+// --- Auto-numbering ---
+function computeIssueCode(roomSlug: string): string {
+  const room = rooms.find((r) => r.slug === roomSlug);
+  const letter = room?.letter || '?';
+  let maxNum = 0;
+  for (const issue of issues) {
+    if (issue.roomSlug === roomSlug && issue.code) {
+      const match = issue.code.match(/^[A-Z?](\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+  }
+  return `${letter}${maxNum + 1}`;
+}
+
 // --- Initialization ---
 async function init(): Promise<void> {
   rooms = getRooms();
@@ -359,6 +376,7 @@ async function handleAddSubmit(e: Event): Promise<void> {
 
   const issue: Issue = {
     id: issueId,
+    code: computeIssueCode(roomSlug),
     roomSlug,
     assigneeSlug,
     type: issueType,
@@ -511,11 +529,12 @@ function renderListView(): void {
         const typeBadge = typeBadgeHtml(issue.type);
         const photoIcon = issue.photos.length > 0 ? `📷 ${issue.photos.length}` : '';
         const assigneeName = issue.assigneeSlug ? assigneeMap.get(issue.assigneeSlug) || issue.assigneeSlug : '';
+        const codeLabel = issue.code ? `<span class="issue-code">${escapeHtml(issue.code)}</span> ` : '';
         html += `
           <div class="issue-item" data-issue-id="${escapeHtml(issue.id)}">
             <div class="issue-info">
               <div class="flex-between">
-                <div class="issue-title">${escapeHtml(issue.title)}</div>
+                <div class="issue-title">${codeLabel}${escapeHtml(issue.title)}</div>
                 <div style="display: flex; gap: 0.25rem;">${typeBadge} ${badge}</div>
               </div>
               ${issue.description ? `<div class="issue-desc">${escapeHtml(issue.description)}</div>` : ''}
@@ -619,10 +638,12 @@ async function showIssueDetail(id: string): Promise<void> {
     }
   }
 
+  const codePrefix = issue.code ? `${escapeHtml(issue.code)} — ` : '';
+
   overlay.innerHTML = `
     <div class="modal-content">
       <div class="modal-title">
-        <span>${escapeHtml(issue.title)}</span>
+        <span>${codePrefix}${escapeHtml(issue.title)}</span>
         <button class="btn btn-sm btn-secondary" id="detail-close">✕</button>
       </div>
       <div style="margin-bottom: 0.75rem;">
@@ -921,7 +942,11 @@ async function handleEditSubmit(e: Event): Promise<void> {
     URL.revokeObjectURL(pending.objectUrl);
   }
 
+  const roomChanged = editIssueRef.roomSlug !== roomSlug;
   editIssueRef.roomSlug = roomSlug;
+  if (roomChanged || !editIssueRef.code) {
+    editIssueRef.code = computeIssueCode(roomSlug);
+  }
   editIssueRef.assigneeSlug = assigneeSlug;
   editIssueRef.type = issueType;
   editIssueRef.title = title;

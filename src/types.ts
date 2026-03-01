@@ -15,6 +15,7 @@ export type IssueType = 'reserve' | 'todo';
 
 export interface Issue {
   id: string;
+  code?: string; // auto-generated code: "{RoomLetter}{Number}" e.g. "Z1", "Y3"
   roomSlug: string;
   assigneeSlug?: string;
   type?: IssueType; // 'reserve' (default) or 'todo' — optional for backward compatibility
