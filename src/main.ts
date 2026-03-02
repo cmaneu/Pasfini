@@ -534,15 +534,14 @@ function renderListView(): void {
         html += `
           <div class="issue-item" data-issue-id="${escapeHtml(issue.id)}">
             <div class="issue-info">
-              <div class="flex-between">
-                <div class="issue-title">${codeLabel}${escapeHtml(issue.title)}</div>
-                <div style="display: flex; gap: 0.25rem;">${typeBadge} ${badge}</div>
+              <div style="display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap;">
+                ${codeLabel}${typeBadge} ${badge}${assigneeName ? ` <span class="issue-meta" style="margin-top:0;">👤 ${escapeHtml(assigneeName)}</span>` : ''}
               </div>
+              <div class="issue-title">${escapeHtml(issue.title)}</div>
               ${issue.description ? `<div class="issue-desc">${escapeHtml(issue.description)}</div>` : ''}
               <div class="issue-meta">
                 ${new Date(issue.createdAt).toLocaleDateString('fr-FR')}
                 ${photoIcon ? ` · ${photoIcon}` : ''}
-                ${assigneeName ? ` · 👤 ${escapeHtml(assigneeName)}` : ''}
               </div>
             </div>
             ${assignees.length > 0 ? `<select class="quick-assign-select" data-issue-id="${escapeHtml(issue.id)}" title="Assigner rapidement">
