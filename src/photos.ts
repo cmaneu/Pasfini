@@ -1,8 +1,5 @@
-// Photo utilities: compression, thumbnail generation
+// Photo utilities: thumbnail generation
 
-const MAX_WIDTH = 1280;
-const MAX_HEIGHT = 1280;
-const JPEG_QUALITY = 0.7;
 const THUMB_SIZE = 200;
 
 export function generateId(): string {
@@ -64,20 +61,22 @@ export interface ProcessedPhoto {
 export async function processPhoto(file: File): Promise<ProcessedPhoto> {
   const img = await loadImage(file);
   
-  // Full size (compressed)
-  const fullCanvas = resizeToCanvas(img, MAX_WIDTH, MAX_HEIGHT);
-  const blob = await canvasToBlob(fullCanvas, JPEG_QUALITY);
+  // Keep the original file blob — no re-encoding, no quality loss
+  const blob: Blob = file;
   
   // Thumbnail
   const thumbCanvas = resizeToCanvas(img, THUMB_SIZE, THUMB_SIZE);
   const thumbnailBlob = await canvasToBlob(thumbCanvas, 0.6);
+
+  const SUPPORTED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  const mimeType = SUPPORTED_TYPES.includes(file.type) ? file.type : 'image/jpeg';
   
   return {
     blob,
     thumbnailBlob,
-    width: fullCanvas.width,
-    height: fullCanvas.height,
-    mimeType: 'image/jpeg',
+    width: img.naturalWidth,
+    height: img.naturalHeight,
+    mimeType,
   };
 }
 
