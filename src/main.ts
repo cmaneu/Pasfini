@@ -14,6 +14,7 @@ import {
   getAssignees,
   saveAssignees,
   saveRooms,
+  clearAllData,
 } from './db.ts';
 import { generateId, processPhoto } from './photos.ts';
 import { exportPDF } from './pdf.ts';
@@ -993,6 +994,8 @@ function showSettingsModal(): void {
         <button class="btn btn-secondary" id="settings-export-zip" style="width: 100%; justify-content: flex-start; padding: 0.75rem 1rem; font-size: 0.9375rem;">📦 Exporter ZIP</button>
         <button class="btn btn-secondary" id="settings-import-zip" style="width: 100%; justify-content: flex-start; padding: 0.75rem 1rem; font-size: 0.9375rem;">📥 Importer ZIP</button>
         <button class="btn btn-secondary" id="settings-share" style="width: 100%; justify-content: flex-start; padding: 0.75rem 1rem; font-size: 0.9375rem;">🔗 Partager les données</button>
+        <hr style="border: none; border-top: 1px solid var(--gray-200); margin: 0.25rem 0;" aria-hidden="true">
+        <button class="btn btn-danger" id="settings-delete-db" style="width: 100%; justify-content: flex-start; padding: 0.75rem 1rem; font-size: 0.9375rem;">🗑️ Supprimer la base</button>
       </div>
     </div>
   `;
@@ -1031,6 +1034,64 @@ function showSettingsModal(): void {
   overlay.querySelector('#settings-share')!.addEventListener('click', () => {
     closeModal();
     handleShareZip();
+  });
+
+  overlay.querySelector('#settings-delete-db')!.addEventListener('click', () => {
+    closeModal();
+    showDeleteDatabaseModal();
+  });
+}
+
+// --- Delete Database Modal ---
+function showDeleteDatabaseModal(): void {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'delete-db-modal';
+
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-title">
+        <span>🗑️ Supprimer la base</span>
+        <button class="btn btn-sm btn-secondary" id="delete-db-close">✕</button>
+      </div>
+      <p style="margin: 0.5rem 0; color: var(--gray-700); font-size: 0.9375rem;">
+        Cette action supprimera toutes les données (réserves, photos, pièces, intervenants). Cette action est irréversible.
+      </p>
+      <label class="form-label" for="delete-db-confirm" style="margin-top: 0.75rem;">Tapez <strong>DELETE</strong> pour confirmer :</label>
+      <input type="text" id="delete-db-confirm" class="form-input" autocomplete="off" placeholder="DELETE" style="margin-top: 0.25rem;" />
+      <button class="btn btn-danger" id="delete-db-btn" disabled style="width: 100%; margin-top: 0.75rem;">Supprimer</button>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const closeModal = () => overlay.remove();
+  const confirmInput = overlay.querySelector('#delete-db-confirm') as HTMLInputElement;
+  const deleteBtn = overlay.querySelector('#delete-db-btn') as HTMLButtonElement;
+
+  confirmInput.addEventListener('input', () => {
+    deleteBtn.disabled = confirmInput.value.trim() !== 'DELETE';
+  });
+
+  overlay.querySelector('#delete-db-close')!.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeModal();
+  });
+
+  deleteBtn.addEventListener('click', async () => {
+    try {
+      await clearAllData();
+      rooms = getRooms();
+      assignees = getAssignees();
+      issues = await getAllIssues();
+      updateIssueCount();
+      renderCurrentView();
+      closeModal();
+      showToast('🗑️ Base de données supprimée');
+    } catch (err) {
+      console.error('Delete database error:', err);
+      showToast('❌ Erreur lors de la suppression');
+    }
   });
 }
 
