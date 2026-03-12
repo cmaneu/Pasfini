@@ -29,6 +29,8 @@ let currentView: 'add' | 'list' = 'add';
 let statusFilter: 'all' | 'open' | 'done' = 'all';
 let roomFilter: string = 'all'; // 'all' or room slug
 let assigneeFilter: string = 'all'; // 'all', '' (unassigned), or assignee slug
+let selectionMode = false;
+let selectedIssueIds = new Set<string>();
 
 // Pending photos for the add form (before saving)
 interface PendingPhoto {
@@ -113,6 +115,12 @@ async function init(): Promise<void> {
 
 function switchView(view: 'add' | 'list'): void {
   currentView = view;
+  if (view === 'add') {
+    selectionMode = false;
+    selectedIssueIds.clear();
+    const bar = document.getElementById('selection-action-bar');
+    if (bar) bar.remove();
+  }
   document.querySelectorAll('.nav-tab').forEach((tab) => {
     tab.classList.toggle('active', (tab as HTMLElement).dataset.view === view);
   });
@@ -494,6 +502,16 @@ function renderListView(): void {
     html += `</div>`;
   }
 
+  // Selection mode toggle
+  if (filtered.length > 0) {
+    html += `
+      <div class="selection-bar">
+        <button class="filter-chip ${selectionMode ? 'active' : ''}" id="btn-toggle-selection">☑️ Sélection</button>
+        ${selectionMode ? `<button class="filter-chip" id="btn-select-all">${selectedIssueIds.size === filtered.length ? 'Tout désélectionner' : 'Tout sélectionner'}</button>` : ''}
+      </div>
+    `;
+  }
+
   if (filtered.length === 0) {
     html += `
       <div class="empty-state">
@@ -532,8 +550,10 @@ function renderListView(): void {
         const photoIcon = issue.photos.length > 0 ? `📷 ${issue.photos.length}` : '';
         const assigneeName = issue.assigneeSlug ? assigneeMap.get(issue.assigneeSlug) || issue.assigneeSlug : '';
         const codeLabel = issue.code ? `<span class="issue-code">${escapeHtml(issue.code)}</span> ` : '';
+        const isSelected = selectedIssueIds.has(issue.id);
         html += `
-          <div class="issue-item" data-issue-id="${escapeHtml(issue.id)}">
+          <div class="issue-item${selectionMode ? ' selection-mode' : ''}${isSelected ? ' selected' : ''}" data-issue-id="${escapeHtml(issue.id)}">
+            ${selectionMode ? `<input type="checkbox" class="issue-checkbox" data-issue-id="${escapeHtml(issue.id)}" ${isSelected ? 'checked' : ''} />` : ''}
             <div class="issue-info">
               <div style="display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap;">
                 ${codeLabel}${typeBadge} ${badge}${assigneeName ? ` <span class="issue-meta" style="margin-top:0;">👤 ${escapeHtml(assigneeName)}</span>` : ''}
@@ -545,7 +565,7 @@ function renderListView(): void {
                 ${photoIcon ? ` · ${photoIcon}` : ''}
               </div>
             </div>
-            ${assignees.length > 0 ? `<select class="quick-assign-select" data-issue-id="${escapeHtml(issue.id)}" title="Assigner rapidement">
+            ${!selectionMode && assignees.length > 0 ? `<select class="quick-assign-select" data-issue-id="${escapeHtml(issue.id)}" title="Assigner rapidement">
               <option value="" ${!issue.assigneeSlug ? 'selected' : ''}>👤</option>
               ${assignees.map((a) => `<option value="${escapeHtml(a.slug)}" ${issue.assigneeSlug === a.slug ? 'selected' : ''}>${escapeHtml(a.name)}</option>`).join('')}
             </select>` : ''}
@@ -557,6 +577,63 @@ function renderListView(): void {
   }
 
   app.innerHTML = html;
+
+  // Floating selection action bar
+  const existingBar = document.getElementById('selection-action-bar');
+  if (existingBar) existingBar.remove();
+  if (selectionMode && selectedIssueIds.size > 0) {
+    const bar = document.createElement('div');
+    bar.id = 'selection-action-bar';
+    bar.className = 'selection-action-bar';
+    bar.innerHTML = `
+      <span>${selectedIssueIds.size} sélectionnée(s)</span>
+      <button class="btn btn-primary btn-sm" id="btn-export-selected-pdf">📄 Exporter PDF</button>
+    `;
+    document.body.appendChild(bar);
+    document.getElementById('btn-export-selected-pdf')!.addEventListener('click', handleExportSelectedPDF);
+  }
+
+  // Selection mode toggle
+  const toggleBtn = document.getElementById('btn-toggle-selection');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      selectionMode = !selectionMode;
+      if (!selectionMode) selectedIssueIds.clear();
+      renderListView();
+    });
+  }
+
+  // Select all / deselect all
+  const selectAllBtn = document.getElementById('btn-select-all');
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener('click', () => {
+      if (selectedIssueIds.size === filtered.length) {
+        selectedIssueIds.clear();
+      } else {
+        for (const issue of filtered) {
+          selectedIssueIds.add(issue.id);
+        }
+      }
+      renderListView();
+    });
+  }
+
+  // Checkbox click handlers
+  app.querySelectorAll('.issue-checkbox').forEach((cb) => {
+    cb.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+    cb.addEventListener('change', (e) => {
+      const checkbox = e.target as HTMLInputElement;
+      const issueId = checkbox.dataset.issueId!;
+      if (checkbox.checked) {
+        selectedIssueIds.add(issueId);
+      } else {
+        selectedIssueIds.delete(issueId);
+      }
+      renderListView();
+    });
+  });
 
   // Status filter chips (only those with data-filter attribute)
   app.querySelectorAll('[data-filter]').forEach((chip) => {
@@ -605,11 +682,20 @@ function renderListView(): void {
     });
   });
 
-  // Issue click -> detail
+  // Issue click -> detail (or toggle selection in selection mode)
   app.querySelectorAll('.issue-item').forEach((item) => {
     item.addEventListener('click', () => {
       const id = (item as HTMLElement).dataset.issueId!;
-      showIssueDetail(id);
+      if (selectionMode) {
+        if (selectedIssueIds.has(id)) {
+          selectedIssueIds.delete(id);
+        } else {
+          selectedIssueIds.add(id);
+        }
+        renderListView();
+      } else {
+        showIssueDetail(id);
+      }
     });
   });
 }
@@ -1418,6 +1504,20 @@ async function performPDFExport(issuesToExport: Issue[], filename: string): Prom
     console.error('PDF export error:', err);
     showToast('❌ Erreur lors de l\'export');
   }
+}
+
+async function handleExportSelectedPDF(): Promise<void> {
+  if (selectedIssueIds.size === 0) {
+    showToast('Aucune réserve sélectionnée');
+    return;
+  }
+  const selected = issues.filter((i) => selectedIssueIds.has(i.id));
+  await performPDFExport(selected, 'reserves - sélection.pdf');
+  selectionMode = false;
+  selectedIssueIds.clear();
+  const bar = document.getElementById('selection-action-bar');
+  if (bar) bar.remove();
+  renderListView();
 }
 
 async function handleExportPDF(): Promise<void> {
