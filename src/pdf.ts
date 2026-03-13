@@ -139,34 +139,45 @@ export async function exportPDF(issues: Issue[], rooms: Room[], assignees?: Assi
         const photos = await getPhotosByIssue(issue.id);
         if (photos.length > 0) {
           let photoX = margin + 10;
-          const photoSize = 55;
+          const maxPhotoSize = 55;
           const photoGap = 4;
-          const photosPerRow = Math.floor((contentWidth - 10 + photoGap) / (photoSize + photoGap));
+          const photosPerRow = Math.floor((contentWidth - 10 + photoGap) / (maxPhotoSize + photoGap));
+          let rowMaxHeight = 0;
 
           for (let i = 0; i < photos.length; i++) {
-            if (y + photoSize > 275) {
-              doc.addPage();
-              y = margin;
-              photoX = margin + 10;
-            }
-
             try {
               const photo = photos[i];
+
+              // Compute display dimensions preserving the original aspect ratio
+              const aspectRatio =
+                photo.width > 0 && photo.height > 0 ? photo.width / photo.height : 1;
+              const displayW = aspectRatio >= 1 ? maxPhotoSize : maxPhotoSize * aspectRatio;
+              const displayH = aspectRatio >= 1 ? maxPhotoSize / aspectRatio : maxPhotoSize;
+
+              if (y + displayH > 275) {
+                doc.addPage();
+                y = margin;
+                photoX = margin + 10;
+                rowMaxHeight = 0;
+              }
+
               const dataUrl = photo.takenAt
                 ? await stampDateOnImage(photo.blob, new Date(photo.takenAt))
                 : await blobToDataUrl(photo.blob);
-              doc.addImage(dataUrl, 'JPEG', photoX, y, photoSize, photoSize);
-              photoX += photoSize + photoGap;
+              doc.addImage(dataUrl, 'JPEG', photoX, y, displayW, displayH);
+              photoX += maxPhotoSize + photoGap;
+              rowMaxHeight = Math.max(rowMaxHeight, displayH);
 
               if ((i + 1) % photosPerRow === 0) {
                 photoX = margin + 10;
-                y += photoSize + photoGap;
+                y += rowMaxHeight + photoGap;
+                rowMaxHeight = 0;
               }
             } catch {
               // Skip failed photos
             }
           }
-          y += photoSize + 5;
+          y += rowMaxHeight + 5;
         }
       } catch {
         // Skip photos on error
