@@ -63,7 +63,7 @@ export async function generateZipBlob(issues: Issue[], rooms: Room[], assignees:
   );
 
   // Helper function to create issue export data
-  const createIssueExportData = (issue: Issue, roomName: string, photoDetails: { path: string; id: string; mimeType: string; width: number; height: number; thumbnailPath: string; createdAt: string }[]) => ({
+  const createIssueExportData = (issue: Issue, roomName: string, photoDetails: { path: string; id: string; mimeType: string; width: number; height: number; thumbnailPath: string; createdAt: string; takenAt?: string }[]) => ({
     id: issue.id,
     code: issue.code ?? '',
     roomSlug: issue.roomSlug,
@@ -114,7 +114,7 @@ export async function generateZipBlob(issues: Issue[], rooms: Room[], assignees:
       // Fetch and add photos
       try {
         const photos = await getPhotosByIssue(issue.id);
-        const photoDetails: { path: string; id: string; mimeType: string; width: number; height: number; thumbnailPath: string; createdAt: string }[] = [];
+        const photoDetails: { path: string; id: string; mimeType: string; width: number; height: number; thumbnailPath: string; createdAt: string; takenAt?: string }[] = [];
 
         if (photos.length > 0) {
           for (let i = 0; i < photos.length; i++) {
@@ -163,6 +163,7 @@ export async function generateZipBlob(issues: Issue[], rooms: Room[], assignees:
               height: photo.height,
               thumbnailPath: `img/${thumbFilename}`,
               createdAt: new Date(photo.createdAt).toISOString(),
+              takenAt: photo.takenAt ? new Date(photo.takenAt).toISOString() : undefined,
             });
           }
 
@@ -360,6 +361,7 @@ export async function importZip(file: File, mode: ImportMode): Promise<{ issueCo
         const width = isOldFormat ? 0 : (photoData.width || 0);
         const height = isOldFormat ? 0 : (photoData.height || 0);
         const photoCreatedAt = isOldFormat ? Date.now() : (photoData.createdAt ? new Date(photoData.createdAt).getTime() : Date.now());
+        const photoTakenAt = isOldFormat ? undefined : (photoData.takenAt ? new Date(photoData.takenAt).getTime() : undefined);
 
         const photoRef: PhotoRef = {
           id: photoId,
@@ -368,6 +370,7 @@ export async function importZip(file: File, mode: ImportMode): Promise<{ issueCo
           width,
           height,
           createdAt: photoCreatedAt,
+          takenAt: photoTakenAt,
           blob,
           thumbnailBlob,
         };

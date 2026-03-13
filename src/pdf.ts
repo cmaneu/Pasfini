@@ -2,7 +2,7 @@
 import { jsPDF } from 'jspdf';
 import type { Issue, Room, Assignee } from './types.ts';
 import { getPhotosByIssue } from './db.ts';
-import { blobToDataUrl } from './photos.ts';
+import { blobToDataUrl, stampDateOnImage } from './photos.ts';
 
 function addPageNumbers(doc: jsPDF): void {
   const totalPages = doc.getNumberOfPages();
@@ -151,7 +151,10 @@ export async function exportPDF(issues: Issue[], rooms: Room[], assignees?: Assi
             }
 
             try {
-              const dataUrl = await blobToDataUrl(photos[i].blob);
+              const photo = photos[i];
+              const dataUrl = photo.takenAt
+                ? await stampDateOnImage(photo.blob, new Date(photo.takenAt))
+                : await blobToDataUrl(photo.blob);
               doc.addImage(dataUrl, 'JPEG', photoX, y, photoSize, photoSize);
               photoX += photoSize + photoGap;
 
