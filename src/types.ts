@@ -34,6 +34,7 @@ export interface PhotoRef {
   width: number;
   height: number;
   createdAt: number;
+  takenAt?: number; // timestamp set only for photos captured via camera
   blob: Blob;
   thumbnailBlob: Blob;
 }

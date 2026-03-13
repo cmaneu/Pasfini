@@ -41,6 +41,7 @@ interface PendingPhoto {
   height: number;
   mimeType: string;
   objectUrl: string;
+  takenAt?: number;
 }
 let pendingPhotos: PendingPhoto[] = [];
 
@@ -91,10 +92,10 @@ async function init(): Promise<void> {
 
   // Photo input (add form)
   document.getElementById('photo-input')!.addEventListener('change', handlePhotoInput);
-  document.getElementById('photo-input-camera')!.addEventListener('change', handlePhotoInput);
+  document.getElementById('photo-input-camera')!.addEventListener('change', handleCameraPhotoInput);
   // Photo input (edit form)
   document.getElementById('edit-photo-input')!.addEventListener('change', handleEditPhotoInput);
-  document.getElementById('edit-photo-input-camera')!.addEventListener('change', handleEditPhotoInput);
+  document.getElementById('edit-photo-input-camera')!.addEventListener('change', handleEditCameraPhotoInput);
 
   // Paste functionality for images
   document.addEventListener('paste', handlePaste);
@@ -269,7 +270,7 @@ function renderPendingPhotos(): void {
   });
 }
 
-async function handlePhotoInput(e: Event): Promise<void> {
+async function handlePhotoInput(e: Event, fromCamera = false): Promise<void> {
   const input = e.target as HTMLInputElement;
   const files = input.files;
   if (!files || files.length === 0) return;
@@ -285,6 +286,7 @@ async function handlePhotoInput(e: Event): Promise<void> {
         height: processed.height,
         mimeType: processed.mimeType,
         objectUrl: URL.createObjectURL(processed.thumbnailBlob),
+        takenAt: fromCamera ? Date.now() : undefined,
       };
       pendingPhotos.push(photo);
     } catch (err) {
@@ -294,6 +296,10 @@ async function handlePhotoInput(e: Event): Promise<void> {
 
   input.value = '';
   renderPendingPhotos();
+}
+
+async function handleCameraPhotoInput(e: Event): Promise<void> {
+  return handlePhotoInput(e, true);
 }
 
 async function handlePaste(e: ClipboardEvent): Promise<void> {
@@ -375,6 +381,7 @@ async function handleAddSubmit(e: Event): Promise<void> {
       width: pending.width,
       height: pending.height,
       createdAt: now,
+      takenAt: pending.takenAt,
       blob: pending.blob,
       thumbnailBlob: pending.thumbnailBlob,
     };
@@ -968,7 +975,7 @@ function renderEditPhotos(existingPhotos: PhotoRef[]): void {
   });
 }
 
-async function handleEditPhotoInput(e: Event): Promise<void> {
+async function handleEditPhotoInput(e: Event, fromCamera = false): Promise<void> {
   const input = e.target as HTMLInputElement;
   const files = input.files;
   if (!files || files.length === 0) return;
@@ -984,6 +991,7 @@ async function handleEditPhotoInput(e: Event): Promise<void> {
         height: processed.height,
         mimeType: processed.mimeType,
         objectUrl: URL.createObjectURL(processed.thumbnailBlob),
+        takenAt: fromCamera ? Date.now() : undefined,
       });
     } catch (err) {
       console.error('Failed to process photo:', err);
@@ -992,6 +1000,10 @@ async function handleEditPhotoInput(e: Event): Promise<void> {
 
   input.value = '';
   renderEditPhotos(existingPhotosRef);
+}
+
+async function handleEditCameraPhotoInput(e: Event): Promise<void> {
+  return handleEditPhotoInput(e, true);
 }
 
 async function handleEditSubmit(e: Event): Promise<void> {
@@ -1022,6 +1034,7 @@ async function handleEditSubmit(e: Event): Promise<void> {
       width: pending.width,
       height: pending.height,
       createdAt: now,
+      takenAt: pending.takenAt,
       blob: pending.blob,
       thumbnailBlob: pending.thumbnailBlob,
     });
